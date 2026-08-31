@@ -1,0 +1,373 @@
+{
+  "_note": "The Meta account structure, declared rather than clicked. Nothing here is live: every status is PAUSED and a human launches. Build it in Ads Manager (or the Marketing API) from this file, and when something changes in Ads Manager, change it here too - the moment the two disagree this file is decoration. Validate with `python -m engine.cli campaign`.",
+  "_not_live": "No campaign, ad set or ad described here has been created. No money has been committed. Budgets are proposals for a human to set or overrule.",
+  "version": 1,
+  "declared": "2026-08-31",
+  "currency": "EUR",
+
+  "account": {
+    "business_portfolio": "REQUIRED - the ad account must be owned by a Business Portfolio, not a personal profile. See docs/PIXEL-INSTALL.md section 0.",
+    "ad_account_id": "TBD",
+    "pixel_id": "TBD - blocked, see docs/PIXEL-INSTALL.md",
+    "page_id": "TBD - a Facebook Page is mandatory to run any ad",
+    "verified_domain": "doviloop.dev - REQUIRED before Aggregated Event Measurement can be configured"
+  },
+
+  "conventions": {
+    "naming": "<scope>-<audience-or-variant>[-<locale>]; Ads Manager names carry the same tokens so exported reports join back to this file on name alone.",
+    "budget_level": "adset",
+    "budget_level_rationale": "ABO, deliberately. Campaign Budget Optimisation would move spend to whichever ad set can absorb it, and the only ad set that can absorb spend is broad-interest - the one audience whose results mean the least. CBO here would quietly defund the ICP.",
+    "everything_starts_paused": true,
+    "utm_template": "utm_source=meta&utm_medium=paid-social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&utm_placement={{placement}}",
+    "utm_rationale": "Meta's own attribution will be close to useless at this volume - no purchase event exists, iOS ATT drops a large share of DK/LT mobile, and the numbers are too small for modelled conversions to mean anything. UTMs in the destination URL are the only attribution that survives contact with reality. Every ad carries them."
+  },
+
+  "global_settings": {
+    "_note": "Settings that are ON by default in Ads Manager and must be turned OFF here. Each one silently defeats something this project depends on.",
+    "advantage_campaign_budget": {
+      "value": "OFF",
+      "why": "See budget_level_rationale."
+    },
+    "advantage_custom_audience": {
+      "value": "OFF",
+      "why": "Audience expansion lets Meta serve outside the uploaded list when it thinks it can do better. The uploaded list IS the targeting - it is the entire reason Meta is usable for this ICP at all. Expansion turns account-based air cover back into the broad prospecting that cannot work here, and does it without telling you."
+    },
+    "advantage_detailed_targeting": {
+      "value": "OFF",
+      "why": "On the interest ad sets, expansion means the interests you set are a suggestion. Then a result cannot be attributed to the targeting you chose, and the one thing broad-interest is for - practising targeting mechanics - is gone."
+    },
+    "advantage_plus_creative": {
+      "value": "OFF",
+      "why": "CLAIMS GATE ISSUE, not a performance one. Standard enhancements can generate text variations, overlay stock phrases, and reword the primary text. Copy that reaches the public without passing engine/gate.py is exactly what this repo exists to prevent, and an auto-generated superlative is precisely the kind of unbacked public assertion the investor warning was about. Off on every ad, without exception."
+    },
+    "attribution_setting": {
+      "value": "7-day click, 1-day view",
+      "why": "The default, kept. Changing it changes what the numbers mean without producing better ones."
+    },
+    "special_ad_categories": {
+      "value": [],
+      "why": "Business software: not credit, employment, housing, social issues, elections or politics. Declaring a category you do not need strips age, geo and custom-audience targeting - which would destroy the outreach-list ad set."
+    }
+  },
+
+  "campaigns": [
+    {
+      "id": "cmp-aircover",
+      "name": "DoviLoop | DK+LT | Air cover | outreach-list",
+      "objective": "OUTCOME_AWARENESS",
+      "optimization_goal": "REACH",
+      "buying_type": "AUCTION",
+      "status": "PAUSED",
+      "rationale": "Separate campaign because the objective is set at campaign level and this one genuinely differs. This campaign's job is that named accounts have seen DoviLoop before or while an outreach email lands. Success is coverage of a known list, not clicks. Optimising for clicks on a 2,000-person audience makes Meta find the click-happy 5% and hammer them - the opposite of air cover.",
+      "adsets": [
+        {
+          "id": "as-outreach-list",
+          "name": "as-outreach-list | DK+LT | all-verticals",
+          "priority": 1,
+          "audience_ref": "outreach-list",
+          "status": "PAUSED",
+          "daily_budget_eur": 5,
+          "budget_note": "Likely to under-spend against the frequency cap. That is the correct outcome, not a problem to fix by raising the cap.",
+          "optimization_goal": "REACH",
+          "billing_event": "IMPRESSIONS",
+          "frequency_control": {
+            "max_impressions": 1,
+            "per_days": 2,
+            "why": "2,000 people and an uncapped budget is how you show one accountant the same ad eleven times in a week. Air cover means the list has seen it; it does not mean the list is sick of it."
+          },
+          "targeting": {
+            "custom_audiences_include": ["ca-outreach-list-hashed"],
+            "geo": ["DK", "LT"],
+            "age": "18-65+",
+            "age_note": "Wide open on purpose. The list is already the targeting; layering demographics on top only shrinks a match pool that is barely above Meta's floor.",
+            "languages": [],
+            "languages_note": "Empty deliberately. Language targeting inside a 2,000-person audience fragments it below usefulness. See localisation_constraint.",
+            "exclusions": [],
+            "exclusions_note": "None. Everyone in this audience is a target, including anyone who has already visited the site."
+          },
+          "placements": {
+            "mode": "automatic",
+            "why": "Restricting placements on an audience this small starves delivery outright. Placement breakdown is free reporting - read it, do not pre-empt it."
+          },
+          "launch_gate": {
+            "conditions": [
+              "ca-outreach-list-hashed exists in Ads Manager and reports a match rate >= 50%",
+              "audience size >= 1,000 (Meta's delivery floor) - only reached with BOTH countries and ALL THREE verticals combined",
+              "advantage_custom_audience confirmed OFF on this ad set"
+            ],
+            "build": "python -m engine.cli audience <outreach-engine queue csv> --out queue/aud-outreach.csv, then upload queue/aud-outreach.csv as a Customer List custom audience with pre-hashed data",
+            "blockers": []
+          },
+          "localisation_constraint": "There is no way to split this ad set by country for language and stay above Meta's 1,000 floor - the floor is only cleared by combining DK and LT. So this ad set runs English, and that is a real compromise, worst in Lithuania. The right place to test Danish and Lithuanian copy is outreach-engine, where language is per-recipient, free, and has the volume.",
+          "ads": [
+            {
+              "id": "ad-outreach-capacity-en",
+              "name": "ad-outreach-capacity-en-video",
+              "creative_ref": "capacity",
+              "locale": "en",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json (render, do not commission new)",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "blockers": []
+            },
+            {
+              "id": "ad-outreach-hours-en",
+              "name": "ad-outreach-hours-en-video",
+              "creative_ref": "hours",
+              "locale": "en",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json (render, do not commission new)",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "blockers": []
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "cmp-response",
+      "name": "DoviLoop | DK+LT | Response | retargeting + interest",
+      "objective": "OUTCOME_TRAFFIC",
+      "optimization_goal": "LINK_CLICKS",
+      "buying_type": "AUCTION",
+      "status": "PAUSED",
+      "rationale": "Traffic, not conversions. Conversion optimisation needs roughly 50 conversion events per ad set per week to leave the learning phase; this project will not produce 50 conversions in a quarter, so a conversion-optimised ad set sits in Learning Limited forever and Meta delivers badly while it waits. Optimise for the event that will actually occur often enough to learn from - the link click - and read conversions in the site analytics instead.",
+      "rationale_addendum": "Also: with revenue switched off in the product (TEST_MODE plus two BYPASS_* flags), no purchase event can honestly fire. There is nothing further down the funnel for Meta to optimise toward even if the volume existed.",
+      "adsets": [
+        {
+          "id": "as-site-retargeting",
+          "name": "as-site-retargeting | DK+LT | 90d",
+          "priority": 2,
+          "audience_ref": "site-retargeting",
+          "status": "PAUSED",
+          "daily_budget_eur": 5,
+          "optimization_goal": "LINK_CLICKS",
+          "billing_event": "IMPRESSIONS",
+          "targeting": {
+            "custom_audiences_include": ["pixel-all-visitors-90"],
+            "geo": ["DK", "LT"],
+            "exclusions": [],
+            "exclusions_note": "None. Someone from the outreach list who visited the site is the single most valuable impression available - do not exclude them for the sake of tidy attribution."
+          },
+          "placements": { "mode": "automatic" },
+          "launch_gate": {
+            "conditions": [
+              "Meta pixel live on doviloop.dev and verified per docs/PIXEL-INSTALL.md section 6",
+              "pixel collecting for >= 30 days",
+              "pixel-all-visitors-90 audience size >= 1,000"
+            ],
+            "blockers": [
+              "Meta pixel is not installed on doviloop.dev. Nothing in this ad set can be built. See docs/PIXEL-INSTALL.md."
+            ]
+          },
+          "sequencing": "This ad set launches LAST and the other three do not wait for it. A 90-day window that starts on launch day is empty on launch day; the pixel needs to be collecting well before there is anything worth retargeting.",
+          "ads": [
+            {
+              "id": "ad-retarget-capacity-en",
+              "name": "ad-retarget-capacity-en-video",
+              "creative_ref": "capacity",
+              "locale": "en",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "blockers": ["pixel not installed"]
+            },
+            {
+              "id": "ad-retarget-hours-en",
+              "name": "ad-retarget-hours-en-video",
+              "creative_ref": "hours",
+              "locale": "en",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "blockers": ["pixel not installed"]
+            }
+          ]
+        },
+
+        {
+          "id": "as-broad-interest-dk",
+          "name": "as-broad-interest-dk | DK | interest",
+          "priority": 3,
+          "audience_ref": "broad-interest",
+          "status": "PAUSED",
+          "daily_budget_eur": 4,
+          "optimization_goal": "LINK_CLICKS",
+          "billing_event": "IMPRESSIONS",
+          "split_rationale": "Split from LT because this is the only ad set with enough audience to survive a split, and country is the axis that eventually carries the language question. Cheap per-country cost data is a free by-product.",
+          "targeting": {
+            "geo": ["DK"],
+            "age_min": 30,
+            "age_max": 60,
+            "interests": ["Accounting", "Bookkeeping", "Small business", "Xero", "QuickBooks"],
+            "job_titles": ["Accountant", "Bookkeeper", "Office Manager"],
+            "exclusions": ["ca-outreach-list-hashed", "pixel-all-visitors-90"],
+            "exclusions_note": "Both excluded, and this matters more than it looks. It stops broad CPMs being paid for people already covered more cheaply elsewhere - and, more importantly, it means anyone who converts here is BY CONSTRUCTION not on the ICP list. That is what makes the who-actually-converted question answerable instead of a guess. Add pixel-all-visitors-90 to the exclusion once the audience exists."
+          },
+          "placements": { "mode": "automatic" },
+          "launch_gate": { "conditions": ["advantage_detailed_targeting confirmed OFF"], "blockers": [] },
+          "warning": "Results here validate craft, not ICP. See docs/LEARNING-PLAN.md.",
+          "ads": [
+            {
+              "id": "ad-bi-dk-capacity-en",
+              "name": "ad-bi-dk-capacity-en-video",
+              "creative_ref": "capacity",
+              "locale": "en",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "blockers": []
+            },
+            {
+              "id": "ad-bi-dk-hours-en",
+              "name": "ad-bi-dk-hours-en-video",
+              "creative_ref": "hours",
+              "locale": "en",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "blockers": []
+            },
+            {
+              "id": "ad-bi-dk-capacity-da",
+              "name": "ad-bi-dk-capacity-da-video",
+              "creative_ref": "capacity",
+              "locale": "da",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "replaces": "ad-bi-dk-capacity-en",
+              "replaces_note": "Replaces the English ad, does not run alongside it. Four ads splitting EUR 4/day learns nothing about anything.",
+              "blockers": [
+                "creative/capacity.json da fields are NEEDS_NATIVE_PROOFREAD. Drafted, not native-checked. A native Danish reviewer signs off before this ad exists - the claims gate reads Danish poorly and cannot be the last line here."
+              ]
+            },
+            {
+              "id": "ad-bi-dk-hours-da",
+              "name": "ad-bi-dk-hours-da-video",
+              "creative_ref": "hours",
+              "locale": "da",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "replaces": "ad-bi-dk-hours-en",
+              "blockers": [
+                "creative/hours.json da fields are NEEDS_NATIVE_PROOFREAD."
+              ]
+            }
+          ]
+        },
+
+        {
+          "id": "as-broad-interest-lt",
+          "name": "as-broad-interest-lt | LT | interest",
+          "priority": 3,
+          "audience_ref": "broad-interest",
+          "status": "PAUSED",
+          "daily_budget_eur": 4,
+          "optimization_goal": "LINK_CLICKS",
+          "billing_event": "IMPRESSIONS",
+          "targeting": {
+            "geo": ["LT"],
+            "age_min": 30,
+            "age_max": 60,
+            "interests": ["Accounting", "Bookkeeping", "Small business", "Xero", "QuickBooks"],
+            "job_titles": ["Accountant", "Bookkeeper", "Office Manager"],
+            "interests_note": "Xero and QuickBooks are weak signals in Lithuania, where local packages dominate. Expect this ad set to look worse than DK for reasons that have nothing to do with the creative - which is itself worth knowing.",
+            "exclusions": ["ca-outreach-list-hashed", "pixel-all-visitors-90"]
+          },
+          "placements": { "mode": "automatic" },
+          "launch_gate": { "conditions": ["advantage_detailed_targeting confirmed OFF"], "blockers": [] },
+          "warning": "Results here validate craft, not ICP. See docs/LEARNING-PLAN.md.",
+          "ads": [
+            {
+              "id": "ad-bi-lt-capacity-en",
+              "name": "ad-bi-lt-capacity-en-video",
+              "creative_ref": "capacity",
+              "locale": "en",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "blockers": []
+            },
+            {
+              "id": "ad-bi-lt-hours-en",
+              "name": "ad-bi-lt-hours-en-video",
+              "creative_ref": "hours",
+              "locale": "en",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "blockers": []
+            },
+            {
+              "id": "ad-bi-lt-capacity-lt",
+              "name": "ad-bi-lt-capacity-lt-video",
+              "creative_ref": "capacity",
+              "locale": "lt",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "replaces": "ad-bi-lt-capacity-en",
+              "blockers": [
+                "creative/capacity.json lt fields are NEEDS_NATIVE_PROOFREAD."
+              ]
+            },
+            {
+              "id": "ad-bi-lt-hours-lt",
+              "name": "ad-bi-lt-hours-lt-video",
+              "creative_ref": "hours",
+              "locale": "lt",
+              "format": "video",
+              "asset": "reel-engine: content/accountants.json",
+              "cta": "LEARN_MORE",
+              "destination": "https://doviloop.dev",
+              "status": "PAUSED",
+              "replaces": "ad-bi-lt-hours-en",
+              "blockers": [
+                "creative/hours.json lt fields are NEEDS_NATIVE_PROOFREAD."
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "held_constant": {
+    "format": "Video everywhere at launch, from reel-engine renders. Stills exist and are the NEXT variable, not a simultaneous one - at this budget, testing framing and format at the same time yields two underpowered tests instead of one.",
+    "cta": "LEARN_MORE on every ad. A CTA-button test is real but it is third in line.",
+    "destination": "https://doviloop.dev on every ad, differing only in UTMs. A landing-page test is fourth in line and needs a landing page that exists."
+  },
+
+  "budget_summary": {
+    "at_launch_daily_eur": 13,
+    "at_launch_note": "as-outreach-list 5 + as-broad-interest-dk 4 + as-broad-interest-lt 4. as-site-retargeting is blocked on the pixel and contributes 0.",
+    "all_four_daily_eur": 18,
+    "monthly_at_launch_eur": 390,
+    "this_is_a_proposal": "Numbers chosen so the broad-interest ad sets accumulate enough impressions for a directional creative read inside a month (see docs/LEARNING-PLAN.md), and so air cover is continuous rather than bursty. A human sets the real ceiling."
+  }
+}
