@@ -1,0 +1,14 @@
+{
+  "id": "broad-interest",
+  "type": "interest",
+  "priority": 3,
+  "rationale": "The weak one, kept for learning rather than results. Meta interest targeting cannot isolate this ICP - 'accounting' as an interest catches students, software shoppers and hobbyists, not 12-person Danish firms.",
+  "targeting": {
+    "geo": ["DK", "LT"],
+    "age_min": 30,
+    "age_max": 60,
+    "interests": ["Accounting", "Bookkeeping", "Small business", "Xero", "QuickBooks"],
+    "job_titles": ["Accountant", "Bookkeeper", "Office Manager"]
+  },
+  "warning": "Treat any result here as craft practice, not ICP validation. If it converts, verify who actually converted before drawing a conclusion."
+}

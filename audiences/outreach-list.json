@@ -1,0 +1,11 @@
+{
+  "id": "outreach-list",
+  "type": "custom_audience",
+  "priority": 1,
+  "rationale": "The only Meta audience that actually matches the ICP. Meta cannot target 'Danish accounting firms with 10+ staff' by interest - that targeting does not exist. outreach-engine already produces the exact list, so upload it hashed and let Meta be account-based air cover over outreach rather than a prospecting channel.",
+  "source": "outreach-engine: queue/*.csv",
+  "build": "python -m engine.cli audience <outreach.csv> --out queue/aud-outreach.csv",
+  "expected_size": "~2,000 people (~750 firms x 2-3 contacts)",
+  "meta_minimum": 1000,
+  "notes": "Above Meta's 1,000 floor only when both countries and all three verticals are combined. A single-vertical slice will under-deliver."
+}

@@ -1,0 +1,48 @@
+{
+  "_note": "Every factual claim an ad makes must resolve here. A claim with no entry fails the gate and the ad does not ship. This exists because DoviLoop currently has no customers, no case studies and no measured outcomes - which is exactly when unverifiable claims get written.",
+  "claims": {
+    "never_auto_sends": {
+      "status": "verified",
+      "evidence": "Product behaviour. Drafts are written to the Outlook drafts folder; no send call exists on the draft path.",
+      "safe_phrasings": ["Nothing sends until you read it", "It never sends on its own", "You approve every send"]
+    },
+    "stays_in_outlook": {
+      "status": "verified",
+      "evidence": "Microsoft Graph API writes into the user's existing mailbox. No separate client, no inbox migration.",
+      "safe_phrasings": ["It never leaves Outlook", "Inside the inbox you already use"]
+    },
+    "eu_hosted": {
+      "status": "verified",
+      "evidence": "Supabase project and n8n instance both hosted in the EU. GDPR compliant.",
+      "safe_phrasings": ["Runs on European servers", "Your data stays in Europe"]
+    },
+    "own_knowledge_base": {
+      "status": "verified",
+      "evidence": "kb_vectors retrieval is per-tenant and grounded in documents the firm supplies.",
+      "safe_phrasings": ["Answers from your own fees, deadlines and policies", "Grounded in your documents, not the internet"]
+    },
+    "per_person_voice": {
+      "status": "verified",
+      "evidence": "WF9 builds a voice profile per mailbox from that person's sent mail.",
+      "safe_phrasings": ["In each person's own words"]
+    },
+    "hours_saved": {
+      "status": "UNVERIFIED",
+      "evidence": "No measured customer outcome exists. The pricing page's '10 hours a month' is a modelled estimate, not an observation.",
+      "safe_phrasings": [],
+      "note": "Do NOT put a time-saving number in an ad. No customer backs it, and a measurable public claim with nothing behind it is the exposure an investor specifically warned about."
+    },
+    "customer_count": {
+      "status": "UNVERIFIED",
+      "evidence": "Zero closed customers as of 2026-08-31. Three prospects, none closed.",
+      "safe_phrasings": [],
+      "note": "No 'trusted by N firms', no logos, no testimonials until design partners sign and agree."
+    },
+    "percentage_claim": {
+      "status": "UNVERIFIED",
+      "evidence": "No measured percentage outcome of any kind exists.",
+      "safe_phrasings": [],
+      "note": "Any percentage in an ad needs a measurement behind it. There is none yet."
+    }
+  }
+}

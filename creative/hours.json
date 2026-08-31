@@ -1,0 +1,26 @@
+{
+  "id": "hours",
+  "framing": "hours-saved",
+  "hypothesis": "CONTROL ARM, matching outreach-engine's 'hours' variant. Deliberately carries NO number: the claims gate blocks time-saving figures because no customer outcome backs them. This tests the framing, not a metric.",
+  "primary_text": {
+    "en": "Three times before lunch, someone on your team writes an email they have already written.\n\nDoviLoop drafts the reply from your own fees, deadlines and policies, and leaves it in their Outlook drafts in their own words.\n\nNothing sends until they read it. Nothing leaves Europe.",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "headline": {
+    "en": "Stop re-typing the same reply",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "description": {
+    "en": "Built for accounting, admin and broker firms",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "cta": "LEARN_MORE",
+  "destination": "https://doviloop.dev",
+  "creative_source": {
+    "video": "reel-engine: content/accountants.json",
+    "still": "reel-engine: --still frame from the same job"
+  }
+}

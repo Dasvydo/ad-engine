@@ -1,0 +1,27 @@
+{
+  "id": "capacity",
+  "framing": "capacity",
+  "hypothesis": "Take on more clients without hiring. Matches outreach-engine's 'capacity' arm so the two channels test the same variable. UNTESTED.",
+  "primary_text": {
+    "en": "Your team answers the same client questions every week. Deadlines, what documents you need, what something costs.\n\nDoviLoop turns your own fee schedule, deadlines and policies into a reply already waiting in each person's Outlook drafts — in their own words.\n\nNothing sends until they read it. Nothing leaves Europe.",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "headline": {
+    "en": "More clients, same team",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "description": {
+    "en": "Built for accounting, admin and broker firms",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "cta": "LEARN_MORE",
+  "destination": "https://doviloop.dev",
+  "creative_source": {
+    "_note": "reel-engine renders these. Reuse rather than commissioning new video.",
+    "video": "reel-engine: content/accountants.json",
+    "still": "reel-engine: --still frame from the same job"
+  }
+}
