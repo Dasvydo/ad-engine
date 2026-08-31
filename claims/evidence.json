@@ -1,30 +1,45 @@
 {
-  "_note": "Every factual claim an ad makes must resolve here. A claim with no entry fails the gate and the ad does not ship. This exists because DoviLoop currently has no customers, no case studies and no measured outcomes - which is exactly when unverifiable claims get written.",
+  "_note": "Every factual claim an ad makes must resolve here. A claim with no entry fails the gate and the ad does not ship. This exists because DoviLoop currently has no customers, no case studies and no measured outcomes - which is exactly when unverifiable claims get written. Adding an entry here is how a claim gets unblocked: state the evidence, list the exact approved wording in safe_phrasings, and flip status to 'verified'. Loosening a regex in engine/gate.py to make an ad pass is not the same thing and is not allowed.",
   "claims": {
     "never_auto_sends": {
       "status": "verified",
       "evidence": "Product behaviour. Drafts are written to the Outlook drafts folder; no send call exists on the draft path.",
-      "safe_phrasings": ["Nothing sends until you read it", "It never sends on its own", "You approve every send"]
+      "safe_phrasings": [
+        "Nothing sends until you read it",
+        "It never sends on its own",
+        "You approve every send"
+      ]
     },
     "stays_in_outlook": {
       "status": "verified",
       "evidence": "Microsoft Graph API writes into the user's existing mailbox. No separate client, no inbox migration.",
-      "safe_phrasings": ["It never leaves Outlook", "Inside the inbox you already use"]
+      "safe_phrasings": [
+        "It never leaves Outlook",
+        "Inside the inbox you already use"
+      ]
     },
     "eu_hosted": {
       "status": "verified",
       "evidence": "Supabase project and n8n instance both hosted in the EU. GDPR compliant.",
-      "safe_phrasings": ["Runs on European servers", "Your data stays in Europe"]
+      "safe_phrasings": [
+        "Runs on European servers",
+        "Your data stays in Europe"
+      ]
     },
     "own_knowledge_base": {
       "status": "verified",
       "evidence": "kb_vectors retrieval is per-tenant and grounded in documents the firm supplies.",
-      "safe_phrasings": ["Answers from your own fees, deadlines and policies", "Grounded in your documents, not the internet"]
+      "safe_phrasings": [
+        "Answers from your own fees, deadlines and policies",
+        "Grounded in your documents, not the internet"
+      ]
     },
     "per_person_voice": {
       "status": "verified",
       "evidence": "WF9 builds a voice profile per mailbox from that person's sent mail.",
-      "safe_phrasings": ["In each person's own words"]
+      "safe_phrasings": [
+        "In each person's own words"
+      ]
     },
     "hours_saved": {
       "status": "UNVERIFIED",
@@ -43,6 +58,60 @@
       "evidence": "No measured percentage outcome of any kind exists.",
       "safe_phrasings": [],
       "note": "Any percentage in an ad needs a measurement behind it. There is none yet."
+    },
+    "pricing_claim": {
+      "status": "UNVERIFIED",
+      "evidence": "docs/ICP-BRIEF.md lists the $49/seat design-partner rate under 'Two things that are proposals, not decisions' and records it as never founder-stated. The $99 standard rate has the same status.",
+      "safe_phrasings": [],
+      "note": "No price in an ad. A published rate is a public offer, it anchors every negotiation that follows, and this one has not been decided by the person who has to honour it. Becomes verifiable the moment the founder states the price on the record - not before."
+    },
+    "market_position": {
+      "status": "UNVERIFIED",
+      "evidence": "No market-share, ranking, comparison or first-to-market analysis of any kind exists. The brief's claim that no US competitor will localise for DK and LT is a strategic bet, not a surveyed fact.",
+      "safe_phrasings": [],
+      "note": "'Best', 'leading', '#1', 'the only X that...' are factual assertions about a market, not opinions, and are the classic comparative-advertising complaint in the EU. Nothing backs one."
+    },
+    "comparative_claim": {
+      "status": "UNVERIFIED",
+      "evidence": "No benchmark against any named or unnamed competitor has been run.",
+      "safe_phrasings": [],
+      "note": "'Faster than', 'better than', 'unlike other tools' need the comparison to have been made. It has not."
+    },
+    "multiplier_claim": {
+      "status": "UNVERIFIED",
+      "evidence": "No measured before/after of any kind exists. Same evidential hole as hours_saved, expressed as a ratio.",
+      "safe_phrasings": [],
+      "note": "'2x', 'twice as fast', 'half the time' is a time-saving number wearing a different hat. The gate blocks the digits; this blocks the ratio."
+    },
+    "accuracy_claim": {
+      "status": "UNVERIFIED",
+      "evidence": "No draft-quality measurement exists. The 30-day guarantee in the brief exists precisely BECAUSE quality is unproven.",
+      "safe_phrasings": [],
+      "note": "'Never wrong', 'error-free', 'perfect', 'always accurate'. This is an LLM writing client email for accountants and brokers. A public accuracy promise is the worst-exposure claim on the board - the one most likely to be quoted back after a bad draft reaches a client."
+    },
+    "speed_claim": {
+      "status": "UNVERIFIED",
+      "evidence": "No measured setup, onboarding or response latency exists. The brief's 90-minute kickoff workshop and monthly tune-up are offer terms, not observed timings, and onboarding requires building the firm's knowledge base first.",
+      "safe_phrasings": [],
+      "note": "'Instantly', 'in seconds', 'set up in 5 minutes'. Setup is not instant by design - we build the knowledge base first, and that is a selling point, not something to paper over with a speed promise."
+    },
+    "certification_claim": {
+      "status": "UNVERIFIED",
+      "evidence": "No SOC 2, no ISO 27001, no external audit, no DPA template, no records of processing, no published sub-processor list.",
+      "safe_phrasings": [],
+      "note": "EU hosting is NOT GDPR compliance and the two must not be conflated in public copy. eu_hosted is verified and says what is true: the servers are in Europe. 'GDPR compliant' and 'certified' are assertions about paperwork and process that do not exist yet."
+    },
+    "guarantee_claim": {
+      "status": "UNVERIFIED",
+      "evidence": "docs/ICP-BRIEF.md does carry a real 30-day guarantee - if the drafts are not good enough to send, they do not pay and they keep the knowledge base. It has never been operated, and it was written as a sales-conversation term, not as public advertising copy.",
+      "safe_phrasings": [],
+      "note": "Deliberately blocked even though the underlying term is real. A guarantee stated in a negotiated conversation and a guarantee broadcast to a whole country are different instruments: the second is an enforceable public promise, in two jurisdictions, from a company with no liability cap and no insurance. Requires a human decision and legal review, not a default. Unblock by adding exact approved wording to safe_phrasings and flipping status - not by loosening the pattern."
+    },
+    "social_proof": {
+      "status": "UNVERIFIED",
+      "evidence": "Zero closed customers as of 2026-08-31. Three prospects, none closed. No case study, no testimonial, no review, no logo permission.",
+      "safe_phrasings": [],
+      "note": "Companion to customer_count, for social proof with no number in it - 'trusted by accounting firms', 'loved by', 'our customers say', star ratings. The absence of a digit does not make it less of an assertion. Design partners must sign AND agree before any of this ships."
     }
   }
 }

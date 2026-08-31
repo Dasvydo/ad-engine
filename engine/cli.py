@@ -3,6 +3,8 @@
     python -m engine.cli audience <outreach.csv> --out queue/aud.csv
     python -m engine.cli check [<creative>]
     python -m engine.cli plan
+    python -m engine.cli campaign [--validate-only]
+    python -m engine.cli claims
 """
 
 from __future__ import annotations
@@ -12,7 +14,8 @@ import json
 from pathlib import Path
 
 from engine.audience import from_outreach_csv
-from engine.gate import check_creative
+from engine.campaign import render, validate
+from engine.gate import check_creative, rules
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -29,6 +32,11 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("creative", nargs="?", type=Path)
 
     sub.add_parser("plan", help="show audiences in priority order with blockers")
+
+    cm = sub.add_parser("campaign", help="render and validate campaign/structure.json")
+    cm.add_argument("--validate-only", action="store_true")
+
+    sub.add_parser("claims", help="list the claims gate's patterns and what each asserts")
 
     args = p.parse_args(argv)
 
@@ -51,6 +59,24 @@ def main(argv: list[str] | None = None) -> int:
                 print("        ", f)
                 failed = True
         return 1 if failed else 0
+
+    if args.cmd == "campaign":
+        if not args.validate_only:
+            print(render())
+        report = validate()
+        for w in report.warnings:
+            print(f"WARN  {w}")
+        for e in report.errors:
+            print(f"ERROR {e}")
+        if report.ok:
+            print("structure OK - and still not live. A human launches.")
+            return 0
+        return 1
+
+    if args.cmd == "claims":
+        for name, claim_id in rules():
+            print(f"{name:20s} -> {claim_id}")
+        return 0
 
     for path in sorted((ROOT / "audiences").glob("*.json")):
         spec = json.loads(path.read_text(encoding="utf-8"))
