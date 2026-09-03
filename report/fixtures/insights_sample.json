@@ -1,0 +1,121 @@
+{
+  "_note": "Shaped exactly like GET /v21.0/act_<id>/insights?level=ad&time_increment=1. Numbers are invented but plausible for EUR 16/day of retargeting across three ad sets over two days: low volume, high CTR because the audience is warm, and almost no leads, which is the whole point campaigns/structure.md makes about statistical power at this spend.",
+  "data": [
+    {
+      "campaign_name": "teams_q4_retargeting",
+      "adset_name": "as1_video_viewers",
+      "ad_name": "teams_q4 | v5-pilot | s05-two-weeks-4x5",
+      "spend": "3.41",
+      "impressions": "412",
+      "clicks": "9",
+      "actions": [
+        {"action_type": "landing_page_view", "value": "7"},
+        {"action_type": "link_click", "value": "8"}
+      ],
+      "account_currency": "EUR",
+      "date_start": "2026-09-23",
+      "date_stop": "2026-09-23"
+    },
+    {
+      "campaign_name": "teams_q4_retargeting",
+      "adset_name": "as1_video_viewers",
+      "ad_name": "teams_q4 | v1-glance | s01-glance-4x5",
+      "spend": "3.02",
+      "impressions": "377",
+      "clicks": "4",
+      "actions": [
+        {"action_type": "landing_page_view", "value": "3"},
+        {"action_type": "link_click", "value": "4"}
+      ],
+      "account_currency": "EUR",
+      "date_start": "2026-09-23",
+      "date_stop": "2026-09-23"
+    },
+    {
+      "campaign_name": "teams_q4_retargeting",
+      "adset_name": "as2_site_visitors",
+      "ad_name": "teams_q4 | v3-outlook | s03-no-new-app-4x5",
+      "spend": "3.88",
+      "impressions": "298",
+      "clicks": "11",
+      "actions": [
+        {"action_type": "landing_page_view", "value": "9"},
+        {"action_type": "link_click", "value": "10"},
+        {"action_type": "offsite_conversion.fb_pixel_lead", "value": "1"}
+      ],
+      "account_currency": "EUR",
+      "date_start": "2026-09-23",
+      "date_stop": "2026-09-23"
+    },
+    {
+      "campaign_name": "teams_q4_retargeting",
+      "adset_name": "as2_site_visitors",
+      "ad_name": "teams_q4 | v4-europe | s04-where-it-lives-4x5",
+      "spend": "2.55",
+      "impressions": "241",
+      "clicks": "6",
+      "actions": [{"action_type": "link_click", "value": "6"}],
+      "account_currency": "EUR",
+      "date_start": "2026-09-23",
+      "date_stop": "2026-09-23"
+    },
+    {
+      "campaign_name": "teams_q4_retargeting",
+      "adset_name": "as3_format_test",
+      "ad_name": "teams_q4 | v2-voice | s02-how-you-write-1x1",
+      "spend": "1.49",
+      "impressions": "162",
+      "clicks": "3",
+      "actions": [{"action_type": "link_click", "value": "3"}],
+      "account_currency": "EUR",
+      "date_start": "2026-09-23",
+      "date_stop": "2026-09-23"
+    },
+    {
+      "campaign_name": "teams_q4_retargeting",
+      "adset_name": "as3_format_test",
+      "ad_name": "teams_q4 | v2-voice | dovy-cam-ad15-1x1",
+      "spend": "1.51",
+      "impressions": "203",
+      "clicks": "5",
+      "actions": [
+        {"action_type": "video_view", "value": "88"},
+        {"action_type": "link_click", "value": "5"}
+      ],
+      "account_currency": "EUR",
+      "date_start": "2026-09-23",
+      "date_stop": "2026-09-23"
+    },
+    {
+      "campaign_name": "teams_q4_retargeting",
+      "adset_name": "as1_video_viewers",
+      "ad_name": "teams_q4 | v5-pilot | s05-two-weeks-4x5",
+      "spend": "3.29",
+      "impressions": "455",
+      "clicks": "7",
+      "actions": [
+        {"action_type": "link_click", "value": "7"},
+        {"action_type": "lead", "value": "1"}
+      ],
+      "account_currency": "EUR",
+      "date_start": "2026-09-24",
+      "date_stop": "2026-09-24"
+    },
+    {
+      "campaign_name": "teams_q4_retargeting",
+      "adset_name": "as2_site_visitors",
+      "ad_name": "teams_q4_v3_outlook_static",
+      "spend": "3.60",
+      "impressions": "310",
+      "clicks": "8",
+      "actions": [{"action_type": "link_click", "value": "8"}],
+      "account_currency": "EUR",
+      "date_start": "2026-09-24",
+      "date_stop": "2026-09-24",
+      "_note": "Deliberately off-convention ad name. The row must still be written, with a warning, rather than dropped."
+    }
+  ],
+  "paging": {
+    "cursors": {"before": "MAZDZD", "after": "MjQZD"}
+  }
+}
