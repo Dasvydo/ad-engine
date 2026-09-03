@@ -1,0 +1,16 @@
+{
+  "id": "v2-voice",
+  "maps_to": "objection-2: it will not sound like us",
+  "pair_with": [
+    "s02-how-you-write",
+    "s08-their-words"
+  ],
+  "primary_text": "A client of twelve years knows how you write. They notice when a reply reads like a template.\n\nDoviLoop builds a voice profile for each person from their own sent mail. The junior's drafts read like the junior. Yours read like you.\n\nThe draft waits in Outlook. You still decide what goes out.",
+  "headline": "It writes the way your team writes",
+  "description": "One voice profile per person",
+  "language": "en",
+  "cta": "LEARN_MORE",
+  "destination": "https://teams.doviloop.dev/?utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content=v2-voice",
+  "utm_template": "utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content={creative_id}",
+  "_note": "English only, all markets, to keep spend down. Danish and Lithuanian localisation is a decision for after the first numbers arrive. utm_content carries this variant id so report/pull_ad_stats.py can join spend back to a creative."
+}

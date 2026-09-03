@@ -1,0 +1,15 @@
+{
+  "id": "v1-glance",
+  "maps_to": "objection-1: it is going to send something wrong to a client",
+  "pair_with": [
+    "s01-glance"
+  ],
+  "primary_text": "Your team already knows the answer. They just have to type it out again.\n\nDoviLoop reads your fee schedule, your deadlines and your engagement terms, then leaves the reply waiting in Outlook drafts.\n\nNothing sends until a person reads it. And reading it takes seconds, because the draft only knows what your firm told it.",
+  "headline": "Drafts you can approve at a glance",
+  "description": "For 10+ seat firms on Outlook",
+  "language": "en",
+  "cta": "LEARN_MORE",
+  "destination": "https://teams.doviloop.dev/?utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content=v1-glance",
+  "utm_template": "utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content={creative_id}",
+  "_note": "English only, all markets, to keep spend down. Danish and Lithuanian localisation is a decision for after the first numbers arrive. utm_content carries this variant id so report/pull_ad_stats.py can join spend back to a creative."
+}

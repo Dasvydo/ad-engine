@@ -1,0 +1,16 @@
+{
+  "id": "v3-outlook",
+  "maps_to": "objection-3: we are not moving out of Outlook and nobody has time for a rollout",
+  "pair_with": [
+    "s03-no-new-app",
+    "s06-where-you-work"
+  ],
+  "primary_text": "No new app. No new login. Nobody has to learn anything.\n\nDoviLoop writes into the Outlook mailbox your team already opens every morning, so the reply is just sitting in drafts when they get there.\n\nWe build the knowledge base with you in the kickoff workshop. The setup does not land on your office manager.",
+  "headline": "It lives in the Outlook you have",
+  "description": "Nothing to install",
+  "language": "en",
+  "cta": "LEARN_MORE",
+  "destination": "https://teams.doviloop.dev/?utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content=v3-outlook",
+  "utm_template": "utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content={creative_id}",
+  "_note": "English only, all markets, to keep spend down. Danish and Lithuanian localisation is a decision for after the first numbers arrive. utm_content carries this variant id so report/pull_ad_stats.py can join spend back to a creative."
+}

@@ -1,0 +1,15 @@
+{
+  "id": "v4-europe",
+  "maps_to": "objection-4: where does client data go and is it training somebody's AI",
+  "pair_with": [
+    "s04-where-it-lives"
+  ],
+  "primary_text": "Every tool will tell you the data is encrypted. Ask a different question. Ask which country it sits in.\n\nOurs sits in Europe. Your documents are only ever used to answer your own firm's email, and we do not train any model on them.\n\nNothing sends on its own either. Someone reads every draft first.",
+  "headline": "Your client data stays in Europe",
+  "description": "EU hosted, human approved",
+  "language": "en",
+  "cta": "LEARN_MORE",
+  "destination": "https://teams.doviloop.dev/?utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content=v4-europe",
+  "utm_template": "utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content={creative_id}",
+  "_note": "English only, all markets, to keep spend down. Danish and Lithuanian localisation is a decision for after the first numbers arrive. utm_content carries this variant id so report/pull_ad_stats.py can join spend back to a creative."
+}

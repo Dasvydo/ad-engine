@@ -1,0 +1,15 @@
+{
+  "id": "v5-pilot",
+  "maps_to": "objection-5: what happens if it does not work out",
+  "pair_with": [
+    "s05-two-weeks"
+  ],
+  "primary_text": "You have been burned by a subscription before. Fair enough.\n\nSo the pilot runs two weeks, the workshop and the setup are part of it, and nothing is charged until day 14. If the drafts are not good enough to send by then, do not go ahead.\n\nYou keep the knowledge base we built with you either way.",
+  "headline": "Two weeks, then you decide",
+  "description": "Free pilot, setup included",
+  "language": "en",
+  "cta": "LEARN_MORE",
+  "destination": "https://teams.doviloop.dev/?utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content=v5-pilot",
+  "utm_template": "utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content={creative_id}",
+  "_note": "English only, all markets, to keep spend down. Danish and Lithuanian localisation is a decision for after the first numbers arrive. utm_content carries this variant id so report/pull_ad_stats.py can join spend back to a creative."
+}

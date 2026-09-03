@@ -1,0 +1,15 @@
+{
+  "id": "v6-repeat",
+  "maps_to": "direct value: the repeat-question pile, written to pass the claims gate",
+  "pair_with": [
+    "s07-your-own-numbers"
+  ],
+  "primary_text": "Count the questions your team answered twice last week. Deadlines, documents, fees, what a policy covers.\n\nThat pile is what DoviLoop drafts for. It answers from your own documents, in each person's own words, and leaves the reply in Outlook for someone to read before it goes.\n\nWorth a look if 10 or more people at your firm write client email.",
+  "headline": "The same questions, every week",
+  "description": "For accounting and broker firms",
+  "language": "en",
+  "cta": "LEARN_MORE",
+  "destination": "https://teams.doviloop.dev/?utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content=v6-repeat",
+  "utm_template": "utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content={creative_id}",
+  "_note": "English only, all markets, to keep spend down. Danish and Lithuanian localisation is a decision for after the first numbers arrive. utm_content carries this variant id so report/pull_ad_stats.py can join spend back to a creative."
+}

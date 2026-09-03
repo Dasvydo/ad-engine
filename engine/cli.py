@@ -41,7 +41,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "check":
-        paths = [args.creative] if args.creative else sorted((ROOT / "creative").glob("*.json"))
+        # rglob, not glob: Batch E's campaign copy lives in creative/copy/ and
+        # must be gated exactly like the two top-level pre-campaign arms.
+        paths = (
+            [args.creative]
+            if args.creative
+            else sorted((ROOT / "creative").rglob("*.json"))
+        )
         failed = False
         for path in paths:
             spec = json.loads(Path(path).read_text(encoding="utf-8"))
