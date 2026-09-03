@@ -7,10 +7,17 @@ Sibling to `reel-engine` and `outreach-engine`; all three work from the same
 locked brief in `docs/ICP-BRIEF.md`.
 
 ```
-audiences/<name>.json   who      targeting specs, ranked by priority
+audiences/<name>.json   who        targeting specs, ranked by priority
 creative/<variant>.json the words  ad copy, one per A/B arm
 claims/evidence.json    the truth  what may be claimed, and what may not
 engine/                 the code   audience build, claims gate, export
+
+research/objections.md  the why    five competitor-sourced objections
+creative/copy/          the words  six campaign copy variants
+creative/static/        the images the typeset ad pipeline, 8 creatives x 2 ratios
+creative/video/         the cut    how to cut reel-engine masters to 15s ads
+campaigns/              the build  Ads Manager build sheet and pixel install
+report/                 the numbers daily Meta Insights into campaign.ad_stats
 ```
 
 ---
@@ -90,6 +97,44 @@ commissioning new creative.
 - **Revenue is switched off** in the product (`TEST_MODE` plus two `BYPASS_*`
   flags). Traffic can arrive and convert to a conversation, but not to a payment.
 - Danish and Lithuanian creative is drafted, **not native-checked**.
+
+---
+
+## The teams_q4 campaign (Batch E, Sept to Oct 2026)
+
+The repo above is the pre-campaign account-based layer. On top of it sits a
+**retargeting** campaign for `teams.doviloop.dev`, under EUR 500 a month,
+English only in all three markets.
+
+```bash
+python -m engine.cli check                 # claims gate, now recurses into creative/
+python -m creative.static.render all       # 8 creatives x 2 ratios -> creative/static/out/
+python -m creative.static.vet              # the brand lock, as an automated check
+python report/pull_ad_stats.py --dry-run   # Meta Insights -> campaign.ad_stats, on a fixture
+python -m pytest -q
+```
+
+Read in this order:
+
+1. **`research/objections.md`** first. Everything else is downstream of it. Five
+   objections for accounting, insurance and housing admin, each traced to a
+   named public competitor source rather than invented.
+2. `campaigns/structure.md` to build the campaign by hand in about 20 minutes.
+3. `campaigns/pixel-install.md` before anything else actually happens, because
+   every audience is empty until the pixel has been collecting for two weeks.
+4. `BLOCKED.md` and `RUN-REPORT.md` for what is missing and what Dovy has to do.
+
+### Three things about this campaign that are easy to get wrong
+
+- **It measures clicks, not conversions.** At EUR 16 a day there are not enough
+  lead events to compare ad sets on cost per lead. `campaigns/structure.md` says
+  this at length and does not soften it.
+- **The claims gate governs every word.** No time saving figure, no percentage,
+  no customer count appears in any of the six copy variants or the eight
+  creatives. The campaign brief lists ROI figures as verified and this repo says
+  they are not; see `BLOCKED.md` entry 3 for the conflict and how it was called.
+- **No ad video gets shot.** `creative/video/cut-spec.md` is a cutting spec for
+  reel-engine's weekly English masters, trimmed to 15 seconds with a harder CTA.
 
 ## Why this runs at all
 
