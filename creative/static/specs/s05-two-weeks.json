@@ -1,0 +1,13 @@
+{
+  "id": "s05-two-weeks",
+  "maps_to": "objection-5: what happens if it does not work out",
+  "job": "Remove the subscription risk an owner has been burned by before.",
+  "theme": "light",
+  "eyebrow": "Free two week pilot",
+  "headline": ["Two weeks.", "Set up by us.", "Then you decide."],
+  "amber": "headline_word",
+  "amber_word": "decide.",
+  "subline": "The kickoff workshop and the setup are part of the pilot. Nothing is charged until day 14, and you keep the knowledge base either way.",
+  "headline_px": {"4x5": 104, "1x1": 92},
+  "card": null
+}

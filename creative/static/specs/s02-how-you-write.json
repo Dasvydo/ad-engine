@@ -1,0 +1,13 @@
+{
+  "id": "s02-how-you-write",
+  "maps_to": "objection-2: it will not sound like us and our clients will notice",
+  "job": "Make a partner believe a long standing client would not spot the difference.",
+  "theme": "dark",
+  "eyebrow": "One voice profile per person",
+  "headline": ["Your clients know", "how you write.", "So does your", "draft."],
+  "amber": "headline_word",
+  "amber_word": "draft.",
+  "subline": "Each person gets a voice profile built from their own sent mail. The junior's drafts read like the junior. The partner's read like the partner.",
+  "headline_px": {"4x5": 94, "1x1": 84},
+  "card": null
+}

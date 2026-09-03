@@ -1,0 +1,20 @@
+{
+  "id": "s06-where-you-work",
+  "maps_to": "direct value: the Outlook native angle",
+  "job": "Show, not tell, that the product lives inside the tool they already pay for.",
+  "theme": "light",
+  "eyebrow": "Built on Microsoft 365",
+  "headline": ["It works where", "your team already", "works."],
+  "amber": "card_row",
+  "amber_word": null,
+  "subline": "Drafts are written straight into each person's Outlook mailbox. Same inbox, same rules, same folders. One extra thing waiting in Drafts.",
+  "headline_px": {"4x5": 92, "1x1": 84},
+  "card": {
+    "title": "Monday  ·  08:41",
+    "rows": [
+      {"from": "Bogholderi Syd", "subject": "Fee for the extra payroll run", "draft": true},
+      {"from": "Havneparken Boligforening", "subject": "Who signs off the maintenance budget?", "draft": true},
+      {"from": "Kruse Forsikringsmaegler", "subject": "Renewal terms for the fleet policy", "draft": true}
+    ]
+  }
+}

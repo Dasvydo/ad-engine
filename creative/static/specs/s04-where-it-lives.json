@@ -1,0 +1,13 @@
+{
+  "id": "s04-where-it-lives",
+  "maps_to": "objection-4: where does client data go and is it training somebody's AI",
+  "job": "Turn a compliance worry into a reason to buy, in a single question.",
+  "theme": "dark",
+  "eyebrow": "Data sovereignty",
+  "headline": ["Everyone says", "encrypted.", "Ask where it", "lives."],
+  "amber": "headline_word",
+  "amber_word": "lives.",
+  "subline": "Ours lives in Europe. Your documents are only ever used to answer your firm's own email, and we do not train any model on them.",
+  "headline_px": {"4x5": 96, "1x1": 86},
+  "card": null
+}

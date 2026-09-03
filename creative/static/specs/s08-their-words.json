@@ -1,0 +1,35 @@
+{
+  "id": "s08-their-words",
+  "maps_to": "direct value: it writes in your voice",
+  "job": "Separate a voice profile from a shared template in one glance.",
+  "theme": "light",
+  "eyebrow": "Not a template library",
+  "headline": [
+    "In their words.",
+    "Not in a",
+    "house style."
+  ],
+  "amber": "card_row",
+  "amber_word": null,
+  "subline": "The same client question, drafted for two people in one firm. Both correct, because both came from the same documents. Neither sounds borrowed.",
+  "headline_px": {
+    "4x5": 98,
+    "1x1": 88
+  },
+  "card": {
+    "title": "Same question  \u00b7  two mailboxes",
+    "rows": [
+      {
+        "from": "Mette, partner",
+        "subject": "Happy to confirm: the deadline is the 17th, and we handle the filing.",
+        "draft": true
+      },
+      {
+        "from": "Jonas, second year",
+        "subject": "Yes, the 17th is the deadline. I will take care of the filing for you.",
+        "draft": true
+      }
+    ],
+    "wrap": true
+  }
+}

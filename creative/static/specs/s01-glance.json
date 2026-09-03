@@ -1,0 +1,13 @@
+{
+  "id": "s01-glance",
+  "maps_to": "objection-1: it is going to send something wrong to a client",
+  "job": "Make an owner feel that checking a draft is a four second read, not a rewrite.",
+  "theme": "light",
+  "eyebrow": "For accounting and broker teams",
+  "headline": ["A draft you can", "approve at a", "glance."],
+  "amber": "headline_word",
+  "amber_word": "glance.",
+  "subline": "It answers from your own fee schedule, your own deadlines and your own engagement terms. Nothing sends until someone reads it.",
+  "headline_px": {"4x5": 108, "1x1": 96},
+  "card": null
+}
