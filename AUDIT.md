@@ -1,4 +1,4 @@
-# AUDIT — Batch E, ad-engine
+# AUDIT, Batch E, ad-engine
 
 Phase 0. Written before any other file in this repo was touched.
 Run date: 2026-09-03. Branch: `campaign/e-ads`. Nothing pushed.
@@ -68,9 +68,9 @@ Currently blocking, deliberately:
 
 | Pattern | Claim id | Status |
 |---|---|---|
-| `\d+ hours`, `saves \d` | `hours_saved` | UNVERIFIED — no measured customer outcome |
-| `trusted by \d`, `\d firms use` | `customer_count` | UNVERIFIED — zero closed customers as of 2026-08-31 |
-| `\d+%` | `percentage_claim` | UNVERIFIED — nothing measured |
+| `\d+ hours`, `saves \d` | `hours_saved` | UNVERIFIED, no measured customer outcome |
+| `trusted by \d`, `\d firms use` | `customer_count` | UNVERIFIED, zero closed customers as of 2026-08-31 |
+| `\d+%` | `percentage_claim` | UNVERIFIED, nothing measured |
 
 Verified and therefore usable: `never_auto_sends`, `stays_in_outlook`,
 `eu_hosted`, `own_knowledge_base`, `per_person_voice`.
@@ -92,7 +92,7 @@ one place the campaign brief and this gate disagree.
 
 ---
 
-## 2. `hm-static-ad-generator` — does the Playwright pipeline execute?
+## 2. `hm-static-ad-generator`, does the Playwright pipeline execute?
 
 **Yes. Verified by running it, not by reading about it.**
 
@@ -141,7 +141,7 @@ Fonts are **not** on the machine:
 
 ```
 $ fc-list | grep -iE "playfair|dm sans"
-(no output — 59 fonts installed, all DejaVu / Liberation / Noto)
+(no output, 59 fonts installed, all DejaVu / Liberation / Noto)
 ```
 
 Google Fonts is reachable through the agent proxy, so the two brand faces are
@@ -242,7 +242,7 @@ which one Batch E followed.
 | Price | $89/seat/mo + $500 setup | $49 design partner / $99 standard, $750 onboarding | Followed the campaign brief. No price appears in any creative, so nothing shipped depends on it. |
 | Destination | `teams.doviloop.dev` | `doviloop.dev` | Campaign brief. All new copy points at `teams.doviloop.dev` with the spec's UTM string. Old creative left pointing at `doviloop.dev`. |
 | Markets | DK, LT, US/global | DK, LT | Campaign brief. Ads are English everywhere either way. |
-| ROI figures | "verified ROI figures (~9x ROI, ~EUR 400/month saved, ~40-day payback)" | `hours_saved`, `percentage_claim` both UNVERIFIED, zero customers | **Followed the repo gate.** No ROI number appears in any creative or copy variant. See BLOCKED.md entry 3 — this needs a one-line answer from Dovy and is the single highest-value unblock in this batch. |
+| ROI figures | "verified ROI figures (~9x ROI, ~EUR 400/month saved, ~40-day payback)" | `hours_saved`, `percentage_claim` both UNVERIFIED, zero customers | **Followed the repo gate.** No ROI number appears in any creative or copy variant. See BLOCKED.md entry 3, this needs a one-line answer from Dovy and is the single highest-value unblock in this batch. |
 
 The ROI conflict is the one that matters. The campaign brief calls the figures
 verified; the repo says flatly that no customer outcome has ever been measured
