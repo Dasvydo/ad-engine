@@ -72,6 +72,19 @@ objections 2 and 4.
 
 ## 3. The ROI figures conflict with the repo's own claims gate
 
+> **Resolved 2026-09-06.** Dovy confirmed the figures (~9x ROI, ~400 EUR a
+> month saved per seat, ~40-day payback) are a **model**: assumed time saved,
+> costed at a salary. No customer outcome has been measured. The gate was right.
+> Recorded as a dated entry in `claims/evidence.json` (`_decisions`, and a new
+> `roi_model` claim, UNVERIFIED). The rule now in the gate: a modelled figure
+> may appear in an ad **only if the same ad says it is a model or a worked
+> example**, never as an outcome. `engine/gate.py` blocks "9x", "payback" and
+> "saves EUR N" unless the ad carries that framing; before this, "9x ROI" would
+> have passed unnoticed. `s07` and the six copy variants were reviewed against
+> the new rule and left as they are; the reasoning is in `RUN-REPORT.md`,
+> "Decisions applied". The original entry is kept below for the record.
+
+
 **The conflict.** `00-START-HERE.md` lists as available proof: "verified ROI
 figures (~9x ROI, ~EUR 400/month saved, ~40-day payback)".
 `claims/evidence.json` in this repo says the opposite, in writing:
@@ -182,6 +195,13 @@ checklist in `00-START-HERE.md`.
 
 ## 7. `campaign_db.py` does not exist in this session (Batch B dependency)
 
+> **Updated 2026-09-06.** The ledger is confirmed as Supabase project
+> `oqpeebtwtikdzorgouxd`. `.env.example` now says so. Nothing else changes on
+> this side: this repo still never connects to the ledger itself,
+> `campaign_db.py` owns the connection, and the PYTHONPATH step below is still
+> the whole integration.
+
+
 **What is missing.** Batch B owns `campaign_db.py` in the `campaign-ledger` repo,
 which this session cannot see or write to. It is the module that
 `report/pull_ad_stats.py` is supposed to call `snapshot_ad_stats` on.
@@ -200,6 +220,15 @@ repo lands. **About 1 minute.** No code change needed on this side.
 ---
 
 ## 8. The campaign brief and the repo brief disagree on price and destination
+
+> **Resolved 2026-09-06.** Canonical is the campaign brief: **89 USD per seat
+> per month plus 500 USD one-off setup**, destination **`teams.doviloop.dev`**.
+> `docs/ICP-BRIEF.md` was updated (the $49 / $99 tiers and the $750 onboarding
+> fee are withdrawn), the two pre-campaign arms `creative/capacity.json` and
+> `creative/hours.json` now point at `teams.doviloop.dev` (copy untouched), and
+> `audiences/site-retargeting.json` names both domains on the one shared pixel.
+> Price is recorded as a verified claim in `claims/evidence.json`.
+
 
 Not a blocker, recorded so nobody has to rediscover it. Full table in `AUDIT.md`
 section 5.

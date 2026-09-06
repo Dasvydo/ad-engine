@@ -232,10 +232,10 @@ checklist in `00-START-HERE.md`.
 | # | Task | Time | Why it matters |
 |---|---|---|---|
 | 1 | **Install the pixel on both domains.** `campaigns/pixel-install.md`, steps 1 to 6. | **25 min** | Do this today, before anything else. Every audience in the campaign is empty until it has been collecting for two weeks. It costs nothing and it is the only piece that compounds. |
-| 2 | **Answer the ROI question.** Where do 9x, EUR 400 a month and 40-day payback come from? Either add the source to `claims/evidence.json` and flip the status, or confirm they are a model and stay out of ads. | **5 min** | Unlocks a stronger `s07` creative. Do not simply flip the flag; the gate exists for this exact moment. BLOCKED.md entry 3. |
+| 2 | ~~Answer the ROI question.~~ **Done 2026-09-06.** They are a model. See "Decisions applied" below. | 0 | The gate's call stands; the rule for using a modelled figure is now in the gate itself. |
 | 3 | **Open the Meta Ad Library in a browser.** Search Fyxer, Superhuman, Jace. Note which angle the longest-running ads lead with. | **10 min** | The one research input I could not get. Whichever objection those ads lead with should go to the top of the creative rotation. |
 | 4 | **Build the campaign.** `campaigns/structure.md`, steps 0 to 3. Around 22 September, not 8 September. | **20 min** | The audiences have to exist first, which is why step 1 is today and this is in three weeks. |
-| 5 | Decide which brief is canonical on price and destination, and update the loser. | **5 min** | `00-START-HERE.md` says $89 + $500 setup and `teams.doviloop.dev`; `docs/ICP-BRIEF.md` says $49/$99 and `doviloop.dev`. No shipped creative depends on it, but the next person will trip on it. |
+| 5 | ~~Decide which brief is canonical on price and destination.~~ **Done 2026-09-06.** 89 USD + 500 USD setup, `teams.doviloop.dev`. The loser was updated. | 0 | See "Decisions applied" below. |
 | Optional | Drop a transparent `logo.png` into `creative/static/assets/`, re-run the renderer. | 2 min | Adds the monogram to all 16 creatives. |
 | Optional | Run the eight bed prompts through Nano Banana Pro, save to `creative/static/beds/`, re-render. | 20 min | Turns typeset-only creatives into full hybrid ones. The typeset versions are shippable as they stand. |
 | Optional | Reconcile the PostHog event names with Batch A. | 10 min | Only matters for audience 3, the pricing viewers. |
@@ -259,3 +259,119 @@ work on it: **judge this on what it teaches, not on pipeline.** By the end of
 October you will know which of five objections makes an accountant stop
 scrolling, for about EUR 450. That answer is worth more in outreach subject lines
 and on the landing page than the clicks are.
+
+
+---
+
+## Decisions applied, 2026-09-06
+
+Dovy answered the four open questions. All four were applied on
+`campaign/e-ads` in one commit. No database was connected, nothing was
+launched, no secret was written.
+
+### 1. The ROI figures are a model, not a measurement
+
+**Decision.** ~9x ROI, ~400 EUR a month saved per seat and ~40-day payback are
+outputs of a model that assumes time saved and costs it at a salary. No
+customer outcome has been measured. This confirms BLOCKED.md entry 3: the gate
+was right. Status for ad use stays UNVERIFIED. A modelled figure may appear in
+an ad only if the ad itself says it is a model or a worked example, never as an
+outcome.
+
+**What changed.**
+
+- `claims/evidence.json` gained a dated `_decisions` list recording the above,
+  and a new `roi_model` claim, UNVERIFIED, with an `allowed_if_framed_as` list
+  of the framing phrases ("worked example", "a model", "our model", "modelled",
+  "not a measurement", and so on).
+- `engine/gate.py` now catches ROI-shaped claims it previously let through: a
+  multiple ("9x"), "payback", "pays for itself", "ROI", and a money-saved
+  figure ("saves EUR 400", "EUR 400 saved"). Each resolves to `roi_model` and
+  is blocked unless one of the framing phrases is in the ad text itself. The
+  allowance is per claim and only for entries that list `allowed_if_framed_as`,
+  so `hours_saved`, `customer_count` and `percentage_claim` are exactly as
+  strict as before. Ratio strings such as `1x1`, `4x5` and `9x16` are excluded.
+  Net effect: the gate is stricter than it was this morning, not looser.
+- Eleven tests added covering both sides of the rule. Suite is now 89, from 78.
+
+**Creative and copy: reviewed, deliberately unchanged.** `s07-your-own-numbers`
+and the six variants were read against the new rule. A worked-example version
+is now writable, but I did not write one, for three reasons. A 1080px static
+cannot carry "this is a model, not a measurement" honestly next to a headline
+number, so `s07` stays number-free. In feed copy the framing sentence lands
+inside the first 125 characters, before "See more", which is the only part most
+readers see, so a hedged ROI opener is weaker than "count the repeat questions
+your team answered last week", not stronger. And `docs/ICP-BRIEF.md` records
+the one prospect who addressed ROI directly rejecting the lever ("what do I
+make per hour? That's not the issue"). The `note` field on `s07` was updated to
+say why; that field is not rendered, but the two `s07` PNGs were re-rendered
+anyway and came back byte-identical, and `vet.py` passes 16 of 16.
+
+If the first fortnight of clicks says the ROI angle is the one that stops
+scrolls, a worked-example paragraph for `v6-repeat` is a ten-minute change and
+the gate will now check it properly.
+
+### 2. Price is 89 USD per seat per month plus 500 USD one-off setup
+
+**Decision.** Canonical on price and destination is the campaign brief: 89 USD
+per seat per month, 500 USD one-off setup, `teams.doviloop.dev`.
+
+**What changed.** Grepped `audiences/`, `creative/`, `docs/`, `campaigns/`,
+`research/` and `report/` for 49, 99 and 750 as prices.
+
+- `docs/ICP-BRIEF.md`: the offer table now reads 89 USD + 500 USD; the $49 /
+  $99 tiers and the $750 onboarding fee are marked withdrawn, with the date.
+  The "two proposals" section is now one, since the $49 rate is settled.
+- `creative/capacity.json`, `creative/hours.json`: `destination` moved from
+  `doviloop.dev` to `teams.doviloop.dev`. Copy untouched.
+- `audiences/site-retargeting.json`: names both domains on the one shared
+  pixel, matching `campaigns/pixel-install.md`.
+- `claims/evidence.json`: `price` added as a verified claim with safe phrasings,
+  so a future ad that states the price passes the gate on evidence rather than
+  by accident.
+- No shipped creative or copy variant carried a price, so nothing rendered
+  changed. The `$99/user/month` in `research/objections.md` is Conversifi's
+  price, not ours, and stays.
+
+One thing worth a glance, not changed: `docs/ICP-BRIEF.md` still says the
+guarantee is 30 days, while every shipped variant says two weeks and day 14,
+per the campaign brief. Same pattern as the price conflict; the campaign brief
+is presumably canonical here too.
+
+### 3. Reply sentiment taxonomy
+
+**Decision.** `interested`, `not_now`, `not_a_fit`, `referred`, `objection`,
+`unsubscribe`.
+
+**What changed.** Nothing. Grepped the repo for any sentiment vocabulary
+(including `positive` / `negative` / `neutral` and the six labels). No file in
+`ad-engine` classifies replies; the taxonomy belongs to outreach-engine.
+Recorded here so the next reader does not repeat the search.
+
+### 4. Ledger project confirmed
+
+**Decision.** The ledger is Supabase project `oqpeebtwtikdzorgouxd`.
+
+**What changed.** `.env.example` names the project ref in the ledger section
+and states that this repo never connects to it directly: `campaign_db.py` in
+the ledger repo owns the connection. BLOCKED.md entry 7 updated. No code
+change; the seam described above is unchanged and still only needs the
+PYTHONPATH step.
+
+### Checks
+
+```
+$ python -m pytest -q
+89 passed
+
+$ python -m engine.cli check
+PASS on all 16 specs
+
+$ python -m creative.static.render s07-your-own-numbers
+$ python -m creative.static.vet
+16 renders checked, 0 failing
+```
+
+No em dash was introduced in any file. The pre-existing em dash in the English
+primary text of `creative/capacity.json` is still there; it is a pre-campaign
+arm and remains Dovy's call. Two minute fix.

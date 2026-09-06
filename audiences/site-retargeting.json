@@ -2,8 +2,8 @@
   "id": "site-retargeting",
   "type": "pixel_retargeting",
   "priority": 2,
-  "rationale": "Cheapest useful Meta spend: people who already reached doviloop.dev. Works regardless of how small the prospecting audience is, because intent has already been shown.",
-  "source": "Meta pixel on doviloop.dev",
+  "rationale": "Cheapest useful Meta spend: people who already reached teams.doviloop.dev or doviloop.dev. Works regardless of how small the prospecting audience is, because intent has already been shown.",
+  "source": "One shared Meta pixel on teams.doviloop.dev and doviloop.dev, see campaigns/pixel-install.md",
   "window_days": 90,
-  "blocked_on": "Meta pixel is not installed on doviloop.dev yet. This audience cannot be built until it is - and it needs to start collecting well before the ads run, or there is nobody in it."
+  "blocked_on": "Meta pixel is not installed on either domain yet. This audience cannot be built until it is - and it needs to start collecting well before the ads run, or there is nobody in it."
 }

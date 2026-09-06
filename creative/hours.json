@@ -18,7 +18,7 @@
     "lt": "NEEDS_NATIVE_PROOFREAD"
   },
   "cta": "LEARN_MORE",
-  "destination": "https://doviloop.dev",
+  "destination": "https://teams.doviloop.dev",
   "creative_source": {
     "video": "reel-engine: content/accountants.json",
     "still": "reel-engine: --still frame from the same job"

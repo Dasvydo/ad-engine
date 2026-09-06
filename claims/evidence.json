@@ -4,27 +4,42 @@
     "never_auto_sends": {
       "status": "verified",
       "evidence": "Product behaviour. Drafts are written to the Outlook drafts folder; no send call exists on the draft path.",
-      "safe_phrasings": ["Nothing sends until you read it", "It never sends on its own", "You approve every send"]
+      "safe_phrasings": [
+        "Nothing sends until you read it",
+        "It never sends on its own",
+        "You approve every send"
+      ]
     },
     "stays_in_outlook": {
       "status": "verified",
       "evidence": "Microsoft Graph API writes into the user's existing mailbox. No separate client, no inbox migration.",
-      "safe_phrasings": ["It never leaves Outlook", "Inside the inbox you already use"]
+      "safe_phrasings": [
+        "It never leaves Outlook",
+        "Inside the inbox you already use"
+      ]
     },
     "eu_hosted": {
       "status": "verified",
       "evidence": "Supabase project and n8n instance both hosted in the EU. GDPR compliant.",
-      "safe_phrasings": ["Runs on European servers", "Your data stays in Europe"]
+      "safe_phrasings": [
+        "Runs on European servers",
+        "Your data stays in Europe"
+      ]
     },
     "own_knowledge_base": {
       "status": "verified",
       "evidence": "kb_vectors retrieval is per-tenant and grounded in documents the firm supplies.",
-      "safe_phrasings": ["Answers from your own fees, deadlines and policies", "Grounded in your documents, not the internet"]
+      "safe_phrasings": [
+        "Answers from your own fees, deadlines and policies",
+        "Grounded in your documents, not the internet"
+      ]
     },
     "per_person_voice": {
       "status": "verified",
       "evidence": "WF9 builds a voice profile per mailbox from that person's sent mail.",
-      "safe_phrasings": ["In each person's own words"]
+      "safe_phrasings": [
+        "In each person's own words"
+      ]
     },
     "hours_saved": {
       "status": "UNVERIFIED",
@@ -43,6 +58,52 @@
       "evidence": "No measured percentage outcome of any kind exists.",
       "safe_phrasings": [],
       "note": "Any percentage in an ad needs a measurement behind it. There is none yet."
+    },
+    "price": {
+      "status": "verified",
+      "evidence": "Confirmed by Dovy on 2026-09-06: 89 USD per seat per month plus 500 USD one-off setup. Supersedes the 49/99 USD and 750 USD figures that were in docs/ICP-BRIEF.md.",
+      "safe_phrasings": [
+        "89 USD a seat a month",
+        "500 USD one-off setup",
+        "The setup fee covers the workshop and the knowledge base build"
+      ]
+    },
+    "roi_model": {
+      "status": "UNVERIFIED",
+      "evidence": "Decision 2026-09-06: the ~9x ROI, ~400 EUR per month saved per seat and ~40-day payback figures are outputs of a model, not measurements. The model assumes an amount of time saved per seat and costs it at a salary. No customer has been measured.",
+      "safe_phrasings": [],
+      "allowed_if_framed_as": [
+        "worked example",
+        "a model",
+        "our model",
+        "modelled",
+        "modeled",
+        "not a measurement",
+        "not measured"
+      ],
+      "note": "An ROI multiple, a payback period or a money-saved figure may appear in an ad ONLY if the same ad says in plain words that it is a model or a worked example. Never present it as an outcome. If the ad does not carry one of the framing phrases in allowed_if_framed_as, the gate blocks it."
     }
-  }
+  },
+  "_decisions": [
+    {
+      "date": "2026-09-06",
+      "by": "Dovy",
+      "topic": "ROI figures",
+      "decision": "The ROI figures (~9x ROI, ~400 EUR per month saved per seat, ~40-day payback) are MODELLED, not measured. They come from a model that assumes time saved and costs it at a salary. No measured customer outcome exists. Status for ad use stays UNVERIFIED. They may appear in an ad ONLY if the ad itself says they are a model or a worked example, never as an outcome. This confirms the gate's original call in BLOCKED.md entry 3.",
+      "applies_to": [
+        "roi_model",
+        "hours_saved",
+        "percentage_claim"
+      ]
+    },
+    {
+      "date": "2026-09-06",
+      "by": "Dovy",
+      "topic": "Price and destination",
+      "decision": "Canonical price is 89 USD per seat per month plus 500 USD one-off setup. Canonical destination is teams.doviloop.dev. docs/ICP-BRIEF.md and the two pre-campaign arms were updated to match.",
+      "applies_to": [
+        "price"
+      ]
+    }
+  ]
 }

@@ -43,11 +43,16 @@ clinics and patient data · enterprise with procurement.
 
 ## Offer
 
-| | Design partner (first 10) | Standard |
-|---|---|---|
-| Price | **$49/seat/mo**, locked 12 months | $99/seat/mo, min 10 seats |
-| Onboarding | Waived | $750, waived annually |
-| Exchange | Logo, case study, testimonial, monthly feedback call | — |
+> Price settled by Dovy on 2026-09-06 and recorded in `claims/evidence.json`
+> (`price`, verified). The earlier $49 / $99 tiers and the $750 onboarding fee
+> in this table are withdrawn. Destination for all ad traffic is
+> `teams.doviloop.dev`.
+
+| | Offer |
+|---|---|
+| Price | **89 USD per seat per month**, min 10 seats |
+| Setup | **500 USD one-off**, covers the kickoff workshop and the knowledge base build |
+| Design partners (first 10) | Logo, case study, testimonial, monthly feedback call in exchange for the reference |
 
 **Delivered:** we build the knowledge base (fees, deadlines, checklists,
 engagement and policy terms) · a voice profile per person · 90-minute kickoff
@@ -82,10 +87,12 @@ Danish for DK, Lithuanian for LT. Both ship in the product, so the outreach
 language and the product language match. No US competitor will localise for these
 two markets — this is the most defensible thing on the board.
 
-## Two things that are proposals, not decisions
+## One thing that is a proposal, not a decision
 
-Flagged so no project treats them as settled:
+Flagged so no project treats it as settled:
 
 - **The "capacity" framing** — reasoned from the prospect rejecting the ROI lever,
   but untested in market. **Highest-value thing to A/B first.**
-- **The $49 design-partner rate** — never founder-stated.
+
+Resolved 2026-09-06: the $49 design-partner rate was never founder-stated and is
+withdrawn. Price is 89 USD per seat per month plus 500 USD one-off setup.

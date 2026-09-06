@@ -131,8 +131,10 @@ Read in this order:
   this at length and does not soften it.
 - **The claims gate governs every word.** No time saving figure, no percentage,
   no customer count appears in any of the six copy variants or the eight
-  creatives. The campaign brief lists ROI figures as verified and this repo says
-  they are not; see `BLOCKED.md` entry 3 for the conflict and how it was called.
+  creatives. Dovy confirmed on 2026-09-06 that the ROI figures are a model,
+  not a measurement, so the gate's call stands. A modelled figure may appear
+  only in an ad that says so itself; see `BLOCKED.md` entry 3 and
+  `claims/evidence.json`.
 - **No ad video gets shot.** `creative/video/cut-spec.md` is a cutting spec for
   reel-engine's weekly English masters, trimmed to 15 seconds with a harder CTA.
 

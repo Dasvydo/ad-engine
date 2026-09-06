@@ -2,13 +2,20 @@
   "id": "s07-your-own-numbers",
   "maps_to": "direct value: the return on investment angle, written to pass the claims gate",
   "job": "Make the arithmetic feel obvious without asserting a result nobody has measured.",
-  "note": "The campaign brief lists ROI figures as verified. claims/evidence.json says no customer outcome has ever been measured. This creative follows the repo gate: it hands the reader the sum instead of the answer. See BLOCKED.md entry 3.",
+  "note": "Decided 2026-09-06: the ROI figures (~9x, ~400 EUR a month per seat, ~40-day payback) are a model, not a measurement, so the gate's original call stands. A number may now appear only if the ad itself says it is a model or a worked example; a 1080px headline cannot carry that framing honestly, so this creative stays number-free and hands the reader the sum instead of the answer. See BLOCKED.md entry 3 and claims/evidence.json _decisions.",
   "theme": "dark",
   "eyebrow": "Run it on your own firm",
-  "headline": ["Count the repeat", "questions your team", "answered last week."],
+  "headline": [
+    "Count the repeat",
+    "questions your team",
+    "answered last week."
+  ],
   "amber": "headline_word",
   "amber_word": "repeat",
   "subline": "Deadlines, documents, fees, cover. The same handful, week after week. That is the number worth knowing, and it is yours, not ours.",
-  "headline_px": {"4x5": 86, "1x1": 78},
+  "headline_px": {
+    "4x5": 86,
+    "1x1": 78
+  },
   "card": null
 }
