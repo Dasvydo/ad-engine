@@ -215,7 +215,13 @@ and logs loudly that the ledger is not connected. The code runs and the tests
 pass with or without Batch B. The seam is documented in `RUN-REPORT.md`.
 
 **What unblocks it.** Put `campaign_db.py` on the `PYTHONPATH` when the ledger
-repo lands. **About 1 minute.** No code change needed on this side.
+repo lands - specifically `export PYTHONPATH=/path/to/campaign-ledger/src`, with
+the trailing `src`, because that is where `campaign_db.py` sits. Pointing at the
+repo root imports nothing and falls back to the shim without complaining.
+**About 1 minute.** No code change needed on this side.
+
+Verified 2026-09-08: the repo root raises `ImportError: No module named
+'campaign_db'`; `/src` imports it.
 
 ---
 
