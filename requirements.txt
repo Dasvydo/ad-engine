@@ -1,0 +1,14 @@
+# ad-engine dependencies.
+#
+# The engine itself has NO third-party dependencies. engine/audience.py hashes
+# with hashlib, engine/gate.py matches with re, and the CLI reads csv and json.
+# All standard library. That is deliberate: the audience builder handles raw
+# PII before it is hashed, so the smaller the dependency surface the better.
+#
+# pytest is test-only. tests/test_gate.py is written as plain pytest functions
+# with no __main__ runner, so `python3 tests/test_gate.py` merely defines them
+# and exits 0 without asserting anything. Run the suite properly:
+#
+#   pip install -r requirements.txt
+#   python3 -m pytest tests/ -q          # 8 tests
+pytest>=8.0
