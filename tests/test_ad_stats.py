@@ -1,4 +1,5 @@
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -8,10 +9,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from report import ledger_shim
 from report.pull_ad_stats import (
     AdStatRow,
+    LEDGER_COLUMNS,
     _write_row,
     build_url,
+    content_id_for_ledger,
     count_leads,
     creative_content_id,
+    ledger_row,
     load_fixture,
     to_row,
     transform,
@@ -73,22 +77,27 @@ def test_fixture_transforms_clean():
 
 def test_rows_use_the_exact_ad_stats_columns():
     """Batch B owns campaign.ad_stats. A renamed field here is a silent
-    integration failure on the day the ledger lands."""
+    integration failure on the day the ledger lands.
+
+    Checked through ledger_row(), not vars(): AdStatRow deliberately carries
+    utm_content, which is a local label and not a column.
+    """
     row = transform(load_fixture())[0]
-    assert set(vars(row)) == set(ledger_shim.COLUMNS)
+    assert set(ledger_row(row)) == set(ledger_shim.COLUMNS)
+    assert set(LEDGER_COLUMNS) == set(ledger_shim.COLUMNS)
 
 
 # --- the ledger seam ------------------------------------------------------
 
 def test_shim_writes_a_row(tmp_path):
-    row = vars(transform(load_fixture())[0])
+    row = ledger_row(transform(load_fixture())[0])
     out = tmp_path / "ad_stats.jsonl"
     ledger_shim.snapshot_ad_stats(row, path=out)
     assert out.read_text(encoding="utf-8").count("\n") == 1
 
 
 def test_shim_refuses_a_column_that_is_not_in_the_table(tmp_path):
-    row = dict(vars(transform(load_fixture())[0]), ctr=0.02)
+    row = dict(ledger_row(transform(load_fixture())[0]), ctr=0.02)
     with pytest.raises(ValueError, match="ctr"):
         ledger_shim.snapshot_ad_stats(row, path=tmp_path / "x.jsonl")
 
@@ -108,9 +117,47 @@ def test_write_row_adapts_to_a_kwargs_signature():
                  captured_on, spend_eur, impressions, clicks, leads):
         seen.update(locals())
 
-    _write_row(snapshot, vars(transform(load_fixture())[0]))
+    _write_row(snapshot, ledger_row(transform(load_fixture())[0]))
     assert seen["campaign_name"] == "teams_q4_retargeting"
-    assert seen["creative_content_id"] == "v5-pilot"
+    # NOT "v5-pilot". The column is uuid; see test_the_ledger_never_receives_a_
+    # non_uuid_creative_id below.
+    assert seen["creative_content_id"] is None
+
+
+def test_the_ledger_never_receives_a_non_uuid_creative_id():
+    """The defect this guards against would have failed on the FIRST live write.
+
+    campaign.ad_stats.creative_content_id is `uuid references campaign.content
+    (id)`. Ad names carry a human label like `v5-pilot`, which Postgres rejects
+    as invalid uuid syntax - but the offline JSONL shim accepts any string, so
+    every test passed and the failure was reserved for production.
+    """
+    for row in transform(load_fixture()):
+        assert row.creative_content_id is None or uuid.UUID(row.creative_content_id)
+
+
+def test_a_real_uuid_in_the_ad_name_is_passed_through():
+    """If an ad is ever named with a genuine content id, keep it."""
+    real = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+    assert content_id_for_ledger(real) == real
+
+
+def test_a_label_that_is_not_a_uuid_becomes_none():
+    assert content_id_for_ledger("v5-pilot") is None
+    assert content_id_for_ledger("") is None
+
+
+def test_the_creative_label_is_kept_even_though_it_is_not_written():
+    """Dropping the id must not mean losing the information."""
+    rows = transform(load_fixture())
+    assert rows[0].utm_content == "v5-pilot"
+
+
+def test_ledger_row_emits_exactly_the_ledger_columns():
+    """A stray key would be a TypeError against Batch B's kwargs signature."""
+    row = transform(load_fixture())[0]
+    assert tuple(ledger_row(row)) == LEDGER_COLUMNS
+    assert "utm_content" not in ledger_row(row)
 
 
 def test_write_row_adapts_to_a_list_signature():

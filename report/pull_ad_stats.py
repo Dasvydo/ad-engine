@@ -36,7 +36,8 @@ import os
 import sys
 import urllib.parse
 import urllib.request
-from dataclasses import asdict, dataclass
+import uuid
+from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -173,19 +174,52 @@ def load_fixture(path: Path = FIXTURE) -> list[dict]:
 
 @dataclass(frozen=True)
 class AdStatRow:
-    """One row of campaign.ad_stats. Column names are Batch B's, exactly.
+    """One day of numbers for one ad.
 
-    `id` is not here: the database generates it.
+    The first eight fields are `campaign.ad_stats`'s columns, exactly, and only
+    those are written - see `LEDGER_COLUMNS` and `ledger_row`. `id` is not here:
+    the database generates it.
+
+    `utm_content` is deliberately NOT a ledger column. It is the human label
+    pulled off the ad name, kept so the dry-run table and the logs can show
+    which creative a row came from. Writing it to the database would fail: see
+    `content_id_for_ledger`.
     """
 
     campaign_name: str
     ad_set_name: str
-    creative_content_id: str
+    creative_content_id: str | None
     captured_on: str
     spend_eur: float
     impressions: int
     clicks: int
     leads: int
+    utm_content: str = ""
+
+
+# The columns campaign.ad_stats actually has, in Batch B's order. Anything not
+# in this tuple never reaches the ledger, which is why AdStatRow may carry
+# local-only fields safely.
+LEDGER_COLUMNS = (
+    "campaign_name",
+    "ad_set_name",
+    "creative_content_id",
+    "captured_on",
+    "spend_eur",
+    "impressions",
+    "clicks",
+    "leads",
+)
+
+
+def ledger_row(row: AdStatRow) -> dict:
+    """Project an AdStatRow onto exactly the ledger's columns.
+
+    Replaces a blanket `asdict()`. `_write_row` may call the ledger with
+    `snapshot(**row)`, so a stray key here is a TypeError against Batch B's
+    signature the first time the real client is on the path.
+    """
+    return {column: getattr(row, column) for column in LEDGER_COLUMNS}
 
 
 def creative_content_id(ad_name: str) -> str:
@@ -206,6 +240,39 @@ def creative_content_id(ad_name: str) -> str:
         ad_name,
     )
     return ad_name.strip()
+
+
+def content_id_for_ledger(label: str) -> str | None:
+    """Return `label` only if it is a real uuid, else None.
+
+    `campaign.ad_stats.creative_content_id` is declared
+    `uuid references campaign.content (id)` in Batch B's
+    migrations/001_schema.sql:388. An ad-name label like `v5-pilot` is not a
+    uuid, so sending it there fails the whole insert with an invalid-input-
+    syntax error - and it would fail on the FIRST live write, having passed
+    every offline test, because the JSONL shim happily accepts any string.
+
+    Batch B's own docstring on `snapshot_ad_stats` settles what to do instead:
+    "creative_content_id is optional ... Leave it None rather than guessing - a
+    wrong link makes v_content_perf blame the wrong lane."
+
+    The label is not lost. It stays on `AdStatRow.utm_content`, prints in the
+    dry-run table, and is named in the warning below. Joining spend back to a
+    specific creative needs a real `campaign.content.id`, which this repo has no
+    way to look up - see BLOCKED.md.
+    """
+    if not label:
+        return None
+    try:
+        uuid.UUID(label)
+    except (ValueError, AttributeError, TypeError):
+        # Deliberately not a warning. Ad names carry human labels, so this is
+        # the NORMAL case on every row of every run, and warning on the normal
+        # case teaches people to ignore warnings. transform() logs one summary
+        # line per run instead.
+        log.debug("creative label %r is not a uuid; creative_content_id is NULL", label)
+        return None
+    return label
 
 
 def count_leads(actions: list[dict] | None) -> int:
@@ -229,10 +296,12 @@ def to_row(raw: dict, *, strict_currency: bool = True) -> AdStatRow:
             "column. Either set the ad account to EUR or add an explicit, dated "
             "conversion step here."
         )
+    label = creative_content_id(raw.get("ad_name", ""))
     return AdStatRow(
         campaign_name=raw["campaign_name"],
         ad_set_name=raw["adset_name"],
-        creative_content_id=creative_content_id(raw.get("ad_name", "")),
+        creative_content_id=content_id_for_ledger(label),
+        utm_content=label,
         captured_on=raw["date_start"],
         spend_eur=round(float(raw.get("spend", 0)), 2),
         impressions=int(raw.get("impressions", 0)),
@@ -242,7 +311,18 @@ def to_row(raw: dict, *, strict_currency: bool = True) -> AdStatRow:
 
 
 def transform(raws: list[dict], *, strict_currency: bool = True) -> list[AdStatRow]:
-    return [to_row(r, strict_currency=strict_currency) for r in raws]
+    rows = [to_row(r, strict_currency=strict_currency) for r in raws]
+    unlinked = [r for r in rows if r.creative_content_id is None]
+    if unlinked:
+        labels = sorted({r.utm_content for r in unlinked if r.utm_content})
+        log.info(
+            "%d of %d rows carry no creative_content_id, so spend is recorded "
+            "against its ad set but not joined to a creative. Labels seen: %s. "
+            "This is expected while ads are named with human labels rather than "
+            "campaign.content uuids.",
+            len(unlinked), len(rows), ", ".join(labels) or "(none)",
+        )
+    return rows
 
 
 # --------------------------------------------------------------------------
@@ -258,7 +338,7 @@ def _print_table(rows: list[AdStatRow]) -> None:
     print("-" * len(head))
     for r in rows:
         print(
-            f"{r.captured_on:11s} {r.ad_set_name[:22]:22s} {r.creative_content_id[:16]:16s} "
+            f"{r.captured_on:11s} {r.ad_set_name[:22]:22s} {(r.utm_content or '-')[:16]:16s} "
             f"{r.spend_eur:8.2f} {r.impressions:8,d} {r.clicks:7,d} {r.leads:6,d}"
         )
     print("-" * len(head))
@@ -319,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
 
     snapshot, connected = _load_snapshot()
     for row in rows:
-        _write_row(snapshot, asdict(row))
+        _write_row(snapshot, ledger_row(row))
 
     _print_table(rows)
     print(
