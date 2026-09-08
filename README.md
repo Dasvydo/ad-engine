@@ -3,6 +3,23 @@
 Meta ads for DoviLoop. Audiences, creative, and a gate that stops unverifiable
 claims reaching a public ad.
 
+> **Campaign-wide documents live in `campaign-n8n/ops/`.** This repo is one of six
+> batches; the status of all of them, the setup guide for a new machine, the
+> decisions taken and what is still waiting on a human are kept together there:
+>
+> | File | What |
+> |---|---|
+> | `ops/STATUS.md` | audit of all six batches |
+> | `ops/NEW-PC-SETUP.md` | clone, install and prove every repo from scratch |
+> | `ops/DECISIONS.md` | what was decided, why, and how to reverse it |
+> | `ops/NIGHT-RUN.md` | the current task plan and its live status |
+> | `ops/HANDOFF.md` | what to pick up next |
+>
+> The six repos must be cloned as **siblings under one parent directory** -
+> several tools reach across them by relative path, and this repo's own contract
+> tests locate `campaign-ledger` that way.
+
+
 Sibling to `reel-engine` and `outreach-engine`; all three work from the same
 locked brief in `docs/ICP-BRIEF.md`.
 
