@@ -1,0 +1,19 @@
+# ad-engine dependencies.
+#
+# The core engine has none. engine/audience.py hashes with hashlib,
+# engine/gate.py matches with re, and the CLI reads csv and json - all standard
+# library. That is deliberate: audience.py handles raw PII before it is hashed,
+# so the smaller the dependency surface around it, the better.
+#
+# Pillow is needed by creative/static/vet.py, which opens each rendered static
+# and checks its dimensions, safe area and file size before it can be called
+# vetted. Without it that script dies on import and the statics ship unchecked.
+#
+# pytest runs the suite. tests/ is plain pytest functions with no __main__
+# runner, so `python3 tests/test_gate.py` would define them and exit 0 having
+# asserted nothing - a false green. Always run it as a suite:
+#
+#   pip install -r requirements.txt
+#   python -m pytest -q                  # 89 tests
+Pillow>=10.0
+pytest>=8.0
