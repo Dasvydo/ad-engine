@@ -13,11 +13,20 @@ exported at 9:16 and 1:1.
 This document is that cutting spec. It is written to be executed by whoever
 holds Batch D's masters, because this repo does not have them.
 
-> **Not executed here.** `ffmpeg` is not installed in this session and Batch D's
-> masters do not exist in this repo, so none of the commands below were run.
-> They are written against the standard filter syntax and the file naming Batch
-> D uses. Treat them as a recipe to check once, not as verified output. Logged
-> in BLOCKED.md.
+> **Executed and verified 2026-09-09.** Both halves of the original caveat -
+> that ffmpeg was absent and that Batch D's masters did not exist here - are no
+> longer true. `imageio-ffmpeg` ships a binary (`ffmpeg-linux-x86_64-v7.0.2`,
+> not on `PATH`; `reel-engine/engine/mux.ffmpeg_exe()` resolves it), and a real
+> master exists at
+> `reel-engine/renders/week-01/week-01-hyperframes-accountants.mp4`.
+>
+> Steps 1 and 2 below were run against that master. Both exit 0 and produce a
+> 15.02 s, 1080x1920, SAR 1:1, bt709 output with its audio intact. The recipe
+> works.
+>
+> **Two things the run corrected in this document**, both from measuring the
+> real master rather than assuming its shape - see "The 15 second structure"
+> and the note under the commands.
 
 ---
 
@@ -42,9 +51,21 @@ feed placement properly, so a third export buys nothing.
 
 ## The 15 second structure
 
-A reel master is built to hold attention for 30 to 60 seconds and earn a follow.
-An ad has to earn a click from someone who was scrolling past. Same footage,
-different job, so the cut is not simply the first 15 seconds of the master.
+An ad has to earn a click from someone who was scrolling past, where the reel is
+built to hold attention and earn a follow. Same footage, different job, so the
+cut is not simply the first 15 seconds of the master.
+
+> **Correction, measured 2026-09-09.** This section previously said a reel
+> master runs "30 to 60 seconds". Batch D's masters are **25.0 seconds**, and
+> that is by design, not an accident of one render:
+> `reel-engine/tests/test_timing.py` asserts `frame_count == 750` at 30 fps and
+> `frame_ms(749) == 24966.666`. The shipped
+> `week-01-hyperframes-accountants.mp4` measures 25.00 s exactly.
+>
+> That matters here, because a 15 second cut from a 25 second master leaves only
+> **10.0 seconds of possible start positions** (0.0 to 10.0), not the 15 to 45
+> the old figure implied. There is far less freedom to choose a window than this
+> document assumed, and the structure below has to fit inside it.
 
 | Seconds | What is on screen | Why |
 |---|---|---|
@@ -89,6 +110,18 @@ python -m creative.static.render s05-two-weeks --ratio 4x5
 # to RATIOS in creative/static/render.py, which is a two line change
 ```
 
+> **On the start timestamp.** This example previously read `-ss 00:00:22.4`,
+> which cannot work: 22.4 + 15 exceeds the 25.0 s master, and running it
+> produces a **2.60 second** clip rather than a 15 second one, silently. The
+> intent was sound - Batch D's last cue sits at 22.0 s, so 22.4 was aiming just
+> past the end card - but with `-t 15` the only legal starts are 0.0 to 10.0.
+> Pick the window from the cue list in `reel-engine`'s timing
+> (cues at 0, 12.0, 18.5 and 22.0 s), then check `start + 15 <= 25.0`.
+>
+> **On the 9:16 step.** Batch D's masters are already 1080x1920, so step 2's
+> scale-and-crop is a passthrough for them. It is kept because it is correct for
+> a 16:9 source and costs nothing, but it is not doing work today.
+
 The end card must carry the wordmark and must not carry a button. A button on a
 video frame is not tappable and the brand lock forbids it on statics for the
 same reason.
@@ -118,7 +151,7 @@ Written for whoever has the masters. Adjust the in-points per master.
 ```bash
 # 1. Cut the 15 second edit from the master, keeping the audio in sync.
 #    -ss before -i seeks fast; re-encode because a copy cut lands on a keyframe.
-ffmpeg -ss 00:00:22.4 -i master.mp4 -t 15 \
+ffmpeg -ss 00:00:08.0 -i master.mp4 -t 15 \
   -c:v libx264 -crf 18 -preset slow -c:a aac -b:a 128k \
   cut15.mp4
 
