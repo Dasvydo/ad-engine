@@ -149,17 +149,58 @@ that sells data sovereignty would be an own goal.
 
 ## 5. How these map to Batch A's PostHog events
 
-Batch A owns PostHog. This repo cannot see that code, so the mapping below is
-**proposed** and needs one reconciliation pass when both branches land. Both
-tools should fire off the same call site so they cannot drift.
+Batch A owns PostHog. **Reconciled against Batch A's shipped code on 2026-09-09**
+(`campaign-site/src/lib/analytics.ts` and `src/LocalePage.tsx`). The proposed
+names are replaced with the shipped ones, per this section's own rule: keep
+Batch A's name, change this table.
 
-| Moment on the page | PostHog event (proposed) | Meta pixel event | Feeds |
+| Moment on the page | PostHog event **(as shipped)** | Meta pixel event **(as shipped)** | Feeds |
 |---|---|---|---|
-| Any page load or route change | `$pageview` (automatic) | `PageView` | Audience 2, site visitors 90 days |
-| Pricing block 50% visible for 2s | `pricing_section_viewed` | `ViewContent` with `content_name: 'pricing'` | Audience 3, pricing viewers 90 days |
-| Qualifier submitted successfully | `qualifier_submitted` with `team_size`, `email_client`, `role`, `market`, `locale` and the `utm` object | `Lead` with `content_category` = routing outcome | The exclusion on audiences 1, 2 and 3, and the ledger's `insert_lead` |
-| Booking link clicked | `booking_link_clicked` | none | PostHog only. Not worth a pixel event at this volume. |
-| Under 10 seats, redirected to pricing | `too_small_redirect` | `Lead` with `content_category: 'too_small'` | Lets a future campaign exclude them |
+| Any page load or route change | `page_view` | `PageView` | Audience 2, site visitors 90 days |
+| Demo video played | `video_play` | `ViewContent` with `content_name: 'demo_video'` | not in any audience yet |
+| Pricing block viewed | `pricing_view` | **none — see gap 1** | Audience 3 **cannot be built** |
+| Qualifier started | `form_start` | none | — |
+| Qualifier submitted | `form_submit` with `team_size`, `email_client`, `role`, `lead_source` | `Lead`, **with no properties — see gap 2** | Exclusions **cannot be built** |
+| Qualified result shown | `qualified_shown` with `outcome`, `webhook_delivered` | none | — |
+| Under 10 seats shown | `too_small_shown` with `webhook_delivered` | none | Future exclusion cannot be built |
+| Booking link clicked | `booking_click` with `placement` | `Schedule` | not in any audience yet |
+
+Batch A's eight PostHog names are declared "fixed by the spec and must not
+drift: the three-market A/B test is decided on them"
+(`analytics.ts:4-6`), so they are authoritative and this table now follows them.
+
+### Two gaps that break audiences, and neither is a naming problem
+
+**Gap 1 — the pricing view never reaches Meta.** `LocalePage.tsx` wires
+`<Price onView={() => track('pricing_view')} />`. That is PostHog only; there is
+no `pixelTrack` call on it at all. The single `ViewContent` the site does send
+carries `content_name: 'demo_video'`, fired on the demo video. So **Audience 3,
+"Pricing section viewers, 90 days" — ranked in `structure.md` as the highest
+intent pool — matches nothing and always will**, because the event it filters on
+is never sent.
+
+**Gap 2 — `Lead` carries no properties.** `LocalePage.tsx:111` calls
+`pixelTrack('Lead')` with no second argument, so no `content_category`. The
+exclusion on audiences 1, 2 and 3, and the future `too_small` exclusion, both
+key on it. PostHog does receive the routing detail (`form_submit` carries
+`team_size`, `email_client`, `role`, `lead_source`), so nothing is lost from the
+system of record — only from Meta's audience builder.
+
+Both are one-line changes in `campaign-site/src/LocalePage.tsx` and neither
+touches the shared contract:
+
+```ts
+<Price c={c} onView={() => { track('pricing_view');
+  pixelTrack('ViewContent', { content_name: 'pricing' }); }} ... />
+
+pixelTrack('Lead', { content_name: 'qualifier', content_category: outcome });
+```
+
+**Not applied here.** They change what is collected about real visitors in an EU
+campaign, and this repo does not own that file. Recorded as a decision in
+`campaign-n8n/ops/DECISIONS.md`. Note that nothing fires today regardless:
+`VITE_META_PIXEL_ID` is unset, so the pixel is inert — which is also why this
+was invisible until someone read both sides.
 
 Wrap both in one function so a change to one cannot silently skip the other:
 
