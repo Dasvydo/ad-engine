@@ -1,5 +1,7 @@
+import json
 import sys
 import uuid
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,7 @@ from report import ledger_shim
 from report.pull_ad_stats import (
     AdStatRow,
     aggregate,
+    fetch_insights,
     LEDGER_COLUMNS,
     _write_row,
     build_url,
@@ -216,6 +219,83 @@ def test_aggregate_is_idempotent():
     once = aggregate(transform(load_fixture()))
     twice = aggregate(once)
     assert [ledger_row(r) for r in once] == [ledger_row(r) for r in twice]
+
+
+# --- the live fetch, which has never run against Meta -----------------------
+
+class _FakeResponse:
+    """Just enough of the urlopen context manager for fetch_insights."""
+
+    def __init__(self, payload):
+        self._body = json.dumps(payload).encode("utf-8")
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _stub_urlopen(monkeypatch, pages):
+    """Serve `pages` in order, recording the URLs asked for."""
+    asked = []
+    seq = list(pages)
+
+    def fake(url, timeout=None):
+        asked.append(url)
+        return _FakeResponse(seq.pop(0))
+
+    monkeypatch.setattr("report.pull_ad_stats.urllib.request.urlopen", fake)
+    return asked
+
+
+def test_fetch_follows_pagination_to_the_end(monkeypatch):
+    """Meta pages at limit=500. Reading only the first page silently truncates
+    a busy day, and the shortfall looks exactly like underspend."""
+    asked = _stub_urlopen(monkeypatch, [
+        {"data": [{"ad_name": "a"}, {"ad_name": "b"}],
+         "paging": {"next": "https://graph.facebook.com/PAGE2"}},
+        {"data": [{"ad_name": "c"}]},
+    ])
+    rows = fetch_insights("act_1", "tok", date(2026, 9, 8), date(2026, 9, 8))
+    assert [r["ad_name"] for r in rows] == ["a", "b", "c"]
+    assert len(asked) == 2
+    assert asked[1] == "https://graph.facebook.com/PAGE2"
+
+
+def test_fetch_stops_when_paging_has_no_next(monkeypatch):
+    asked = _stub_urlopen(monkeypatch, [{"data": [{"ad_name": "a"}], "paging": {}}])
+    assert len(fetch_insights("act_1", "tok", date(2026, 9, 8), date(2026, 9, 8))) == 1
+    assert len(asked) == 1
+
+
+def test_fetch_raises_on_an_error_payload(monkeypatch):
+    """Meta returns HTTP 200 with an error body for an expired token, so the
+    status code proves nothing - the same trap Batch D documented for Buffer."""
+    _stub_urlopen(monkeypatch, [
+        {"error": {"message": "Error validating access token", "code": 190}},
+    ])
+    with pytest.raises(RuntimeError, match="Meta Insights error"):
+        fetch_insights("act_1", "tok", date(2026, 9, 8), date(2026, 9, 8))
+
+
+def test_fetch_asks_for_the_right_url(monkeypatch):
+    asked = _stub_urlopen(monkeypatch, [{"data": []}])
+    fetch_insights("1234567890", "tok", date(2026, 9, 1), date(2026, 9, 8))
+    url = asked[0]
+    assert "/act_1234567890/insights?" in url, "a bare id must be prefixed act_"
+    assert "level=ad" in url
+    assert "time_increment=1" in url
+    assert "2026-09-01" in url and "2026-09-08" in url
+
+
+def test_an_empty_day_is_not_an_error(monkeypatch):
+    """No spend yesterday is a normal Saturday, not a failure."""
+    _stub_urlopen(monkeypatch, [{"data": []}])
+    assert fetch_insights("act_1", "tok", date(2026, 9, 8), date(2026, 9, 8)) == []
 
 
 def test_write_row_adapts_to_a_list_signature():

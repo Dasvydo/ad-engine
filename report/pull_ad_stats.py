@@ -139,7 +139,12 @@ def build_url(account_id: str, token: str, since: date, until: date) -> str:
         {
             "fields": ",".join(INSIGHTS_FIELDS),
             "level": "ad",
-            "time_increment": "1",  # one row per ad per day, which is the grain we store
+            # One row per ad per day. That is NOT the grain campaign.ad_stats
+            # stores - it is keyed (campaign_name, ad_set_name, captured_on) -
+            # so aggregate() sums these onto the ad-set/day grain before any
+            # write. Believing this was the storage grain is what lost 39% of
+            # spend to an overwriting upsert; see aggregate()'s docstring.
+            "time_increment": "1",
             "time_range": json.dumps(
                 {"since": since.isoformat(), "until": until.isoformat()}
             ),
