@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from report import ledger_shim
 from report.pull_ad_stats import (
     AdStatRow,
+    aggregate,
     LEDGER_COLUMNS,
     _write_row,
     build_url,
@@ -158,6 +159,63 @@ def test_ledger_row_emits_exactly_the_ledger_columns():
     row = transform(load_fixture())[0]
     assert tuple(ledger_row(row)) == LEDGER_COLUMNS
     assert "utm_content" not in ledger_row(row)
+
+
+# --- the ad-set/day grain ---------------------------------------------------
+
+def test_aggregation_preserves_every_euro():
+    """The defect this guards against loses spend silently.
+
+    Meta is queried at level=ad; campaign.ad_stats is unique on
+    (campaign_name, ad_set_name, captured_on) and snapshot_ad_stats upserts on
+    that key, replacing rather than summing. Writing ad-level rows straight
+    through means the last ad in each ad set overwrites its siblings.
+
+    Asserting the TOTAL, not the row count: a count-only test passes happily
+    while every number is short.
+    """
+    rows = transform(load_fixture())
+    agg = aggregate(rows)
+    assert sum(r.spend_eur for r in agg) == pytest.approx(sum(r.spend_eur for r in rows))
+    for field in ("impressions", "clicks", "leads"):
+        assert sum(getattr(r, field) for r in agg) == sum(getattr(r, field) for r in rows)
+
+
+def test_aggregation_collapses_to_the_ledger_grain():
+    agg = aggregate(transform(load_fixture()))
+    keys = [(r.campaign_name, r.ad_set_name, r.captured_on) for r in agg]
+    assert len(keys) == len(set(keys)), "two rows share the ledger's natural key"
+
+
+def test_the_fixture_actually_exercises_a_collision():
+    """A guard on the guard. If the fixture ever loses its duplicate ad sets,
+    the tests above would still pass while testing nothing."""
+    rows = transform(load_fixture())
+    agg = aggregate(rows)
+    assert len(agg) < len(rows), "fixture no longer contains an ad-set collision"
+
+
+def test_a_merged_group_has_no_creative_link():
+    """A group spanning creatives cannot name one, or v_content_perf blames the
+    wrong lane."""
+    for r in aggregate(transform(load_fixture())):
+        if "+" in r.utm_content:
+            assert r.creative_content_id is None
+
+
+def test_a_merged_group_keeps_every_label():
+    agg = aggregate(transform(load_fixture()))
+    merged = [r for r in agg if "+" in r.utm_content]
+    assert merged, "expected at least one merged group in the fixture"
+    for r in merged:
+        parts = r.utm_content.split("+")
+        assert len(parts) == len(set(parts)), "labels should be de-duplicated"
+
+
+def test_aggregate_is_idempotent():
+    once = aggregate(transform(load_fixture()))
+    twice = aggregate(once)
+    assert [ledger_row(r) for r in once] == [ledger_row(r) for r in twice]
 
 
 def test_write_row_adapts_to_a_list_signature():

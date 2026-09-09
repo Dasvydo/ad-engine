@@ -310,6 +310,73 @@ def to_row(raw: dict, *, strict_currency: bool = True) -> AdStatRow:
     )
 
 
+def aggregate(rows: list[AdStatRow]) -> list[AdStatRow]:
+    """Collapse ad-level rows onto the ledger's ad-set/day grain, summing.
+
+    Meta is queried at `level=ad` (see INSIGHTS_FIELDS and build_url), so it
+    returns one row per ad per day. `campaign.ad_stats` is keyed
+    `unique (campaign_name, ad_set_name, captured_on)` and Batch B's
+    `snapshot_ad_stats` upserts on exactly that key - a REPLACE, not a sum.
+
+    So without this, two ads in one ad set on one day collide and the second
+    write overwrites the first. Nothing errors and nothing warns; the row is
+    simply short. Measured on the committed fixture: 8 ad rows collapse to 5
+    ad-set/days, and last-write-wins stores 13.97 EUR of a real 22.75 - a 39%
+    under-report, which would then be wrong in every cost-per-lead and channel
+    funnel number downstream.
+
+    Summing is the only correct reading: `spend_eur`, `impressions`, `clicks`
+    and `leads` are all additive over the ads in an ad set.
+
+    `creative_content_id` stays None for a merged group, because a group spans
+    creatives and Batch B's docstring is explicit that a wrong link makes
+    v_content_perf blame the wrong lane. `utm_content` keeps every distinct
+    label so the merge stays visible in the dry-run table and the logs.
+    """
+    acc: dict[tuple, dict] = {}
+    labels: dict[tuple, list[str]] = {}
+    order: list[tuple] = []
+
+    for row in rows:
+        key = (row.campaign_name, row.ad_set_name, row.captured_on)
+        if key not in acc:
+            order.append(key)
+            acc[key] = {
+                "campaign_name": row.campaign_name,
+                "ad_set_name": row.ad_set_name,
+                "creative_content_id": row.creative_content_id,
+                "captured_on": row.captured_on,
+                "spend_eur": row.spend_eur,
+                "impressions": row.impressions,
+                "clicks": row.clicks,
+                "leads": row.leads,
+            }
+            labels[key] = [row.utm_content] if row.utm_content else []
+            continue
+
+        a = acc[key]
+        a["spend_eur"] = round(a["spend_eur"] + row.spend_eur, 2)
+        a["impressions"] += row.impressions
+        a["clicks"] += row.clicks
+        a["leads"] += row.leads
+        # A group spanning creatives cannot name one.
+        if a["creative_content_id"] != row.creative_content_id:
+            a["creative_content_id"] = None
+        if row.utm_content and row.utm_content not in labels[key]:
+            labels[key].append(row.utm_content)
+
+    if len(order) != len(rows):
+        spanning = sum(1 for k in order if len(labels[k]) > 1)
+        log.info(
+            "%d ad-level rows collapsed to %d ad-set/day rows, summing spend, "
+            "impressions, clicks and leads. %d group(s) span more than one "
+            "creative.",
+            len(rows), len(order), spanning,
+        )
+
+    return [AdStatRow(**acc[k], utm_content="+".join(labels[k])) for k in order]
+
+
 def transform(raws: list[dict], *, strict_currency: bool = True) -> list[AdStatRow]:
     rows = [to_row(r, strict_currency=strict_currency) for r in raws]
     unlinked = [r for r in rows if r.creative_content_id is None]
@@ -371,7 +438,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         raws = load_fixture(args.fixture)
         log.info("dry run against %s, %d raw rows", args.fixture.name, len(raws))
-        rows = transform(raws, strict_currency=not args.allow_non_eur)
+        rows = aggregate(transform(raws, strict_currency=not args.allow_non_eur))
         _print_table(rows)
         print("\nDRY RUN, nothing written to campaign.ad_stats.")
         return 0
@@ -395,7 +462,7 @@ def main(argv: list[str] | None = None) -> int:
         since = until = date.today() - timedelta(days=1)   # yesterday, the usual run
 
     raws = fetch_insights(account, token, since, until)
-    rows = transform(raws, strict_currency=not args.allow_non_eur)
+    rows = aggregate(transform(raws, strict_currency=not args.allow_non_eur))
 
     snapshot, connected = _load_snapshot()
     for row in rows:
