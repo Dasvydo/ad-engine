@@ -9,11 +9,27 @@
 # and checks its dimensions, safe area and file size before it can be called
 # vetted. Without it that script dies on import and the statics ship unchecked.
 #
+# playwright is needed by the SAME script. vet.check_fonts() drives headless
+# Chromium to confirm the woff2 files actually loaded, because the failure it
+# catches - Chromium quietly substituting a system serif for Playfair Display -
+# is invisible in the PNG to everything except a human who already suspects it.
+# It was imported but never declared, so `pip install -r requirements.txt`
+# followed by `python -m creative.static.vet` died on ModuleNotFoundError and
+# the font check had no way to run. Unpinned on purpose: the version only has
+# to agree with the Chromium build it drives. Provision that build with
+# `playwright install chromium`, or point PLAYWRIGHT_BROWSERS_PATH at one that
+# is already there and match its version.
+#
 # pytest runs the suite. tests/ is plain pytest functions with no __main__
 # runner, so `python3 tests/test_gate.py` would define them and exit 0 having
 # asserted nothing - a false green. Always run it as a suite:
 #
 #   pip install -r requirements.txt
-#   python -m pytest -q                  # 89 tests
+#   python -m pytest -q                  # 115 tests
+#
+# 9 of those 115 are tests/test_ledger_contract.py, which SKIP unless
+# campaign-ledger is checked out beside this repo. A green run that skips them
+# is not a green seam - see that file's docstring.
 Pillow>=10.0
+playwright>=1.40
 pytest>=8.0
