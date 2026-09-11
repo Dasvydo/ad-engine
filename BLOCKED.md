@@ -196,7 +196,7 @@ checklist in `00-START-HERE.md`.
 ## 7. `campaign_db.py` does not exist in this session (Batch B dependency)
 
 > **Updated 2026-09-06.** The ledger is confirmed as Supabase project
-> `oqpeebtwtikdzorgouxd`. `.env.example` now says so. Nothing else changes on
+> `yheilbuunzdugfnermfb`. `.env.example` now says so. Nothing else changes on
 > this side: this repo still never connects to the ledger itself,
 > `campaign_db.py` owns the connection, and the PYTHONPATH step below is still
 > the whole integration.

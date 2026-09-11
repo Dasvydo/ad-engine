@@ -350,7 +350,7 @@ Recorded here so the next reader does not repeat the search.
 
 ### 4. Ledger project confirmed
 
-**Decision.** The ledger is Supabase project `oqpeebtwtikdzorgouxd`.
+**Decision.** The ledger is Supabase project `yheilbuunzdugfnermfb`.
 
 **What changed.** `.env.example` names the project ref in the ledger section
 and states that this repo never connects to it directly: `campaign_db.py` in
