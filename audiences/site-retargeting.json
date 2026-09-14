@@ -2,8 +2,9 @@
   "id": "site-retargeting",
   "type": "pixel_retargeting",
   "priority": 2,
-  "rationale": "Cheapest useful Meta spend: people who already reached teams.doviloop.dev or doviloop.dev. Works regardless of how small the prospecting audience is, because intent has already been shown.",
-  "source": "One shared Meta pixel on teams.doviloop.dev and doviloop.dev, see campaigns/pixel-install.md",
+  "rationale": "Cheapest useful Meta spend: people who already reached the campaign site or doviloop.dev. Works regardless of how small the prospecting audience is, because intent has already been shown.",
+  "source": "One shared Meta pixel, id 1584074833462346. Installed and firing on campaign-site-azure.vercel.app since 2026-09-12, verified by reading the deployed bundle. Not yet confirmed on doviloop.dev. See campaigns/pixel-install.md",
   "window_days": 90,
-  "blocked_on": "Meta pixel is not installed on either domain yet. This audience cannot be built until it is - and it needs to start collecting well before the ads run, or there is nobody in it."
+  "blocked_on": "Not the pixel any more - it is live. This audience is blocked on TIME: collection started 2026-09-12, so the pool is two days deep and effectively empty. It needs to be filling well before the ads run or there is nobody in it on launch day.",
+  "_history": "Until 2026-09-14 this field read 'Meta pixel is not installed on either domain yet'. That was true when written and is not now. The blocker moved rather than cleared, which is easy to miss: an audience that is empty because it just started collecting looks exactly like an audience that is empty because nothing is wired."
 }

@@ -120,7 +120,7 @@ commissioning new creative.
 ## The teams_q4 campaign (Batch E, Sept to Oct 2026)
 
 The repo above is the pre-campaign account-based layer. On top of it sits a
-**retargeting** campaign for `teams.doviloop.dev`, under EUR 500 a month,
+**retargeting** campaign for `campaign-site-azure.vercel.app`, under EUR 500 a month,
 English only in all three markets.
 
 ```bash

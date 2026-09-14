@@ -20,6 +20,14 @@ STATIC_SPECS = sorted((ROOT / "creative" / "static" / "specs").glob("*.json"))
 
 UTM = "utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content="
 
+# The campaign origin. NOT teams.doviloop.dev: that host exists but 301s to
+# https://www.doviloop.dev/, so an ad pointed at it lands the visitor on the
+# product home page with no qualifier, no lead form and none of this campaign's
+# instrumentation - and it does that silently, returning 200 the whole way.
+# Measured 2026-09-14. If the subdomain is ever repointed at the campaign site,
+# change it here and the six variants follow.
+ORIGIN = "https://campaign-site-azure.vercel.app"
+
 
 def _load(path):
     return json.loads(path.read_text(encoding="utf-8"))
@@ -68,10 +76,20 @@ def test_claims_gate_passes(path):
 
 
 @pytest.mark.parametrize("path", COPY, ids=lambda p: p.stem)
-def test_destination_is_teams_with_the_exact_utm(path):
+def test_destination_is_the_campaign_origin_with_the_exact_utm(path):
     spec = _load(path)
-    assert spec["destination"].startswith("https://teams.doviloop.dev/")
+    assert spec["destination"].startswith(ORIGIN + "/"), spec["destination"]
     assert UTM + spec["id"] in spec["destination"]
+
+
+@pytest.mark.parametrize("path", COPY, ids=lambda p: p.stem)
+def test_destination_never_points_at_the_product_site(path):
+    """The failure this guards against is silent, which is why it is its own
+    test. teams.doviloop.dev and doviloop.dev both answer 200 after a redirect,
+    so a wrong destination costs budget without ever looking broken."""
+    dest = _load(path)["destination"]
+    for dead in ("teams.doviloop.dev", "doviloop.dev"):
+        assert dead not in dest, f"{dest} sends paid traffic off the campaign"
 
 
 @pytest.mark.parametrize("path", COPY, ids=lambda p: p.stem)

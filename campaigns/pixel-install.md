@@ -1,18 +1,27 @@
 # Meta pixel install, both domains
 
-One pixel, two domains. `teams.doviloop.dev` is the campaign landing page
-(Batch A). `doviloop.dev` is the product site, and it matters here because the
-qualifier redirects firms under 10 seats there, and because a 90 day site
+One pixel, two domains. `campaign-site-azure.vercel.app` is the campaign landing
+page (Batch A). `doviloop.dev` is the product site, and it matters here because
+the qualifier redirects firms under 10 seats there, and because a 90 day site
 audience built from both domains is roughly twice the size of one built from
 either.
 
-Nothing in this document contains a secret. `<PIXEL_ID>` is a public identifier
-that appears in page source on every site that uses one, but it does not exist
-yet, so it is a placeholder until Dovy creates the Meta Business account.
+> The campaign origin is **not** `teams.doviloop.dev`. That host exists but
+> 301s to `https://www.doviloop.dev/`, so it is a redirect to the product site,
+> not a second place to install anything. Measured 2026-09-14.
+
+Nothing in this document contains a secret. A pixel id is a public identifier
+that appears in page source on every site that uses one. It now exists:
+**1584074833462346**. `<PIXEL_ID>` remains as a placeholder only in the generic
+snippet below, which is for `doviloop.dev`.
 
 > **Do this before anything else in the campaign.** Every audience in
 > `structure.md` is empty until the pixel has been collecting for two weeks. It
 > costs nothing and it is the only piece of this that compounds.
+>
+> Status 2026-09-14: done on the campaign site, still open on `doviloop.dev`.
+> The clock on the campaign side started 2026-09-12, so audience 2 and audience
+> 3 are two days deep.
 
 ---
 
@@ -47,20 +56,34 @@ fbq('track', 'PageView');
 <!-- End Meta Pixel -->
 ```
 
-### On `teams.doviloop.dev` (Next.js on Vercel, Batch A)
+### On the campaign site (`campaign-site-azure.vercel.app`) - ALREADY DONE
 
-Put it in `app/layout.tsx` with `next/script` and `strategy="afterInteractive"`,
-not in a `useEffect`. Then set `NEXT_PUBLIC_META_PIXEL_ID` in Vercel project
-settings so the id is not hardcoded across environments, and guard it so preview
-deployments do not pollute the audiences:
+**Do not follow the snippet above for this domain.** It is installed, it is
+firing, and the instructions that used to sit here were wrong twice over: the
+campaign site is Vite + React, not Next.js, so there is no `app/layout.tsx` and
+no `next/script`, and the variable is `VITE_META_PIXEL_ID`, not
+`NEXT_PUBLIC_META_PIXEL_ID`. Following them would have produced a second,
+duplicate pixel.
 
-```tsx
-{process.env.NEXT_PUBLIC_VERCEL_ENV === "production" &&
-  process.env.NEXT_PUBLIC_META_PIXEL_ID && <MetaPixel />}
-```
+What is actually there, in the campaign-site repo:
 
-A single-page app also has to fire `PageView` on client-side route changes,
-because the base snippet only fires on hard loads. Hook it to the router.
+- `src/lib/pixel.ts` holds the loader. With `VITE_META_PIXEL_ID` empty it
+  injects nothing, requests nothing and sets no cookie, so the page is genuinely
+  inert rather than quietly beaconing.
+- `initMetaPixel()` fires `init` then `PageView`, and appends the `<noscript>`
+  fallback, only when an id exists.
+- `pixelTrack(event, props)` is the wrapper every funnel call goes through. It
+  no-ops when the pixel is inert and swallows its own errors, so a pixel problem
+  can never break the page.
+- Pixel id **1584074833462346**, live since 2026-09-12, confirmed by reading the
+  deployed bundle rather than the Events Manager dashboard.
+
+`VITE_*` values are compiled in at build time. Setting one in Vercel without
+redeploying changes nothing, which is the single easiest way to believe this is
+wired when it is not.
+
+Route changes are handled: the site is a three-route SPA (`/`, `/da`, `/lt`) and
+`PageView` is fired per locale page rather than only on hard load.
 
 ### On `doviloop.dev`
 

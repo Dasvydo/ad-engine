@@ -57,7 +57,7 @@ So do not launch paid on 8 September. Do this instead:
 | When | What |
 |---|---|
 | **Now, today** | Install the pixel on both domains. See `pixel-install.md`. It costs nothing and it is the only thing here that compounds. |
-| 8 to 21 September | Reels post, outreach runs, traffic lands on `teams.doviloop.dev`. Pools fill. Spend nothing on ads. |
+| 8 to 21 September | Reels post, outreach runs, traffic lands on `campaign-site-azure.vercel.app`. Pools fill. Spend nothing on ads. |
 | **Around 22 September** | Check audience sizes in Ads Manager. If video viewers is over 1,000, build the campaign below. |
 | 22 Sept to 19 Oct | Four weeks of paid, roughly EUR 450. |
 
@@ -77,7 +77,7 @@ built at all before.
 | # | Audience | How to build it | Notes |
 |---|---|---|---|
 | 1 | **Video viewers 50%, 180 days** | Create audience > Custom > Video > "People who watched at least 50% of your video" > select all reels on the page and the IG account > 180 days | The best audience here. Someone who watched half a reel about drafting client email is qualified in a way no interest targeting can match. |
-| 2 | **Site visitors, 90 days, minus leads** | Custom > Website > All visitors > `teams.doviloop.dev` > 90 days. Then Exclude > people who triggered `Lead` | Excluding form submitters matters. Paying to retarget someone who already booked is the most common way small budgets get wasted. |
+| 2 | **Site visitors, 90 days, minus leads** | Custom > Website > All visitors > `campaign-site-azure.vercel.app` > 90 days. Then Exclude > people who triggered `Lead` | Excluding form submitters matters. Paying to retarget someone who already booked is the most common way small budgets get wasted. |
 | 3 | **Pricing section viewers, 90 days** | Custom > Website > Events > `ViewContent` where `content_name` equals `pricing` > 90 days | Fed by the PostHog to pixel mapping in `pixel-install.md`. Highest intent pool, and it will also be the smallest. |
 | 4 | **IG and FB engagers, 365 days** | Custom > Instagram account, and again for Facebook page > "Everyone who engaged" > 365 days | Cheap filler. Keep it as an expansion audience, not a headline one. |
 | 5 | **Lookalike from form submitters** | Custom > Website > `Lead` event > then Create lookalike, 1% | **Documented and unused.** A lookalike needs 100 seeds minimum and behaves badly under about 500. There will not be 50 form submitters in six weeks. Build it when there are, not before. |
@@ -160,14 +160,24 @@ Primary text     paste from creative/copy/<variant>.json  -> primary_text
 Headline         same file -> headline
 Description      same file -> description
 Call to action   Learn more
-Website URL      https://teams.doviloop.dev/?utm_source=meta&utm_medium=paid
-                 &utm_campaign=teams_q4&utm_content=<variant-id>
+Website URL      https://campaign-site-azure.vercel.app/?utm_source=meta
+                 &utm_medium=paid&utm_campaign=teams_q4&utm_content=<variant-id>
 Ad name          teams_q4 | <variant-id> | <creative-id>-<ratio>
 ```
 
 The URL in every copy file already has the right UTM baked in. Copy it from the
 `destination` field rather than typing it, because one wrong `utm_content` makes
 that ad invisible in the report.
+
+> **The destination is not `teams.doviloop.dev`.** That host resolves and
+> answers, which is the problem: it 301s to `https://www.doviloop.dev/`, the
+> product home page. An ad pointed there would return 200, look healthy in Ads
+> Manager, and land every paid click on a page with no qualifier, no lead form
+> and none of this campaign's pixel or PostHog instrumentation. Measured
+> 2026-09-14. Audience 2 and audience 3 would both stay empty while the budget
+> drained. If Dovy later repoints the subdomain at the campaign site, this
+> changes back in one place: `ORIGIN` in `tests/test_copy.py`, then the six
+> `destination` fields.
 
 Upload the 4:5 image and let Meta crop for feed, or upload 1:1 separately per
 placement. Both ratios are in `creative/static/out/`.

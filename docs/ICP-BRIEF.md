@@ -48,6 +48,11 @@ clinics and patient data · enterprise with procurement.
 > in this table are withdrawn. Destination for all ad traffic is
 > `teams.doviloop.dev`.
 
+> **Superseded 2026-09-14 on the destination only.** The price above stands.
+> `teams.doviloop.dev` was never stood up as the campaign page; it 301s to
+> `https://www.doviloop.dev/`. All ad traffic goes to
+> `https://campaign-site-azure.vercel.app/`.
+
 | | Offer |
 |---|---|
 | Price | **89 USD per seat per month**, min 10 seats |
