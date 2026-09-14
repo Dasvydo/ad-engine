@@ -127,11 +127,17 @@ will read.
 ### `ViewContent`, fired when the pricing section is actually seen
 
 ```js
-fbq('trackCustom', 'ViewContent', {
+fbq('track', 'ViewContent', {
   content_name: 'pricing',
   content_category: 'teams_landing'
 });
 ```
+
+`track`, not `trackCustom`. `ViewContent` is one of Meta's standard events, and
+sending it through `trackCustom` registers a custom event that happens to share
+the name. The audience builder treats the two separately, so audience 3 would
+match nothing while the Events Manager showed traffic arriving. This snippet
+said `trackCustom` until 2026-09-14; the one further down always said `track`.
 
 Fire it from an IntersectionObserver when the pricing block has been at least
 50% visible for 2 seconds, not on page load. Firing on load makes every visitor
@@ -181,7 +187,7 @@ Batch A's name, change this table.
 |---|---|---|---|
 | Any page load or route change | `page_view` | `PageView` | Audience 2, site visitors 90 days |
 | Demo video played | `video_play` | `ViewContent` with `content_name: 'demo_video'` | not in any audience yet |
-| Pricing block viewed | `pricing_view` | **none — see gap 1** | Audience 3 **cannot be built** |
+| Pricing block viewed | `pricing_view` | `ViewContent` with `content_name: 'pricing'`, dwell-gated | Audience 3, live since 2026-09-14 |
 | Qualifier started | `form_start` | none | — |
 | Qualifier submitted | `form_submit` with `team_size`, `email_client`, `role`, `lead_source` | `Lead`, **with no properties — see gap 2** | Exclusions **cannot be built** |
 | Qualified result shown | `qualified_shown` with `outcome`, `webhook_delivered` | none | — |
@@ -194,13 +200,21 @@ drift: the three-market A/B test is decided on them"
 
 ### Two gaps that break audiences, and neither is a naming problem
 
-**Gap 1 — the pricing view never reaches Meta.** `LocalePage.tsx` wires
-`<Price onView={() => track('pricing_view')} />`. That is PostHog only; there is
-no `pixelTrack` call on it at all. The single `ViewContent` the site does send
-carries `content_name: 'demo_video'`, fired on the demo video. So **Audience 3,
-"Pricing section viewers, 90 days" — ranked in `structure.md` as the highest
-intent pool — matches nothing and always will**, because the event it filters on
-is never sent.
+**Gap 1 — CLOSED 2026-09-14 (decision P-6).** It used to read: the pricing view
+never reaches Meta, so audience 3 matches nothing and always will. It does now.
+`<Price />` takes a second, stricter view callback and `LocalePage.tsx` wires it
+to `pixelTrack('ViewContent', { content_name: 'pricing', content_category:
+'teams_landing' })`.
+
+The dwell rule this document asks for is enforced in the component, not left to
+whoever wires it: `onView` still fires `pricing_view` to PostHog at 35%
+visibility with no delay, and a **separate** observer requires 50% visibility
+for two continuous seconds before the pixel call. Scrolling away cancels it.
+Verified in Chromium off `window.fbq.queue`: nothing on page load, nothing at
+0.6s, the event at 2s, exactly once, and nothing at all for a fast scroll-past.
+
+Audience 3 is buildable. It is still the smallest pool and it only began
+collecting on 2026-09-14, four weeks behind the site audience.
 
 **Gap 2 — `Lead` carries no properties.** `LocalePage.tsx:111` calls
 `pixelTrack('Lead')` with no second argument, so no `content_category`. The
@@ -209,8 +223,11 @@ key on it. PostHog does receive the routing detail (`form_submit` carries
 `team_size`, `email_client`, `role`, `lead_source`), so nothing is lost from the
 system of record — only from Meta's audience builder.
 
-Both are one-line changes in `campaign-site/src/LocalePage.tsx` and neither
-touches the shared contract:
+Gap 2 remains parked: Dovy settled the pricing half of P-6 only, and sending
+lead attributes to Meta is a privacy call as much as a marketing one. The patch
+below is kept for whenever it is taken up; gap 1's half of it is already live
+and is shown as it was actually implemented. Neither touches the shared
+contract:
 
 ```ts
 <Price c={c} onView={() => { track('pricing_view');
@@ -256,9 +273,16 @@ working account and four weeks of quietly broken audiences.
    You should see `PageView`, then `ViewContent`, then `Lead`, in that order,
    from both domains.
 3. **Domain verification.** Business Settings > Brand Safety > Domains. Add
-   `doviloop.dev` and `teams.doviloop.dev`. Verify with the DNS TXT record,
-   which is the least fragile of the three methods and works for both at once if
-   you verify the apex.
+   `doviloop.dev` and verify it with the DNS TXT record, which is the least
+   fragile of the three methods and covers subdomains if you verify the apex.
+
+   The campaign origin is currently `campaign-site-azure.vercel.app`, and a
+   `vercel.app` subdomain **cannot** be domain-verified: the TXT record would
+   have to go on Vercel's apex, which is not yours. This matters for Aggregated
+   Event Measurement in step 4, which is per verified domain. It is the concrete
+   reason to repoint `teams.doviloop.dev` at the campaign site and make it the
+   destination - a subdomain of an apex you already control verifies for free.
+   Until then, AEM covers `doviloop.dev` only.
 4. **Aggregated Event Measurement.** Events Manager > Aggregated Event
    Measurement > Configure Web Events, per verified domain. Rank them:
 
@@ -278,7 +302,7 @@ working account and four weeks of quietly broken audiences.
 | Symptom | Cause, nearly always |
 |---|---|
 | Pixel Helper shows two `PageView` events | The snippet is in both the template and GTM. Remove one. |
-| `ViewContent` fires on every visit | It is on page load instead of on intersection. |
-| No events at all from `teams.doviloop.dev` | Consent gate never granted, or the Vercel env guard is excluding production because `NEXT_PUBLIC_VERCEL_ENV` is unset. |
+| `ViewContent` fires on every visit | It is on page load instead of on intersection, or the dwell timer is not being cancelled when the band leaves the viewport. |
+| No events at all from the campaign site | Consent gate never granted, or `VITE_META_PIXEL_ID` was set in Vercel without a redeploy. `VITE_*` values are compiled in at build time, so saving the variable alone changes nothing. |
 | Audience stuck at "below 1000" for weeks | Normal at this traffic level. Do not launch ads against it. See the timing table in `structure.md`. |
 | Events show in Test Events but not in the audience | Audiences take up to 24 hours to populate, and a 90 day window only counts people who visited after install. Wait a day before worrying. |
