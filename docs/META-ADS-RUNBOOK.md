@@ -1,5 +1,21 @@
 # Meta ads — A to Z
 
+> ## ⛔ CORRECTED 2026-09-16 — read before trusting this file
+>
+> The connector was connected for real and its tool list read. **Three claims
+> below are wrong:**
+>
+> - **"Cannot create or manage audiences"** — false. `ads_create_custom_audience`
+>   + `ads_update_custom_audience_users` do the hashed customer-list upload.
+> - **"Creative assets not accessible / contradictory"** — false. `ads_get_ad_preview`,
+>   `ads_get_ad_images`, `ads_get_ad_videos`, `ads_get_creatives` all exist.
+> - **"No competitor research"** — false. `ads_library_search` exists.
+>
+> Still true: **no B2B firmographic targeting**. Nothing in the tool list provides it.
+>
+> Live account: `620456015062432`, MCP-enabled, **DKK**, no payment method, no
+> Business Manager. See `CLAUDE.md` for current state.
+
 > For someone who has not run Meta ads before. Written 2026-09-16.
 > Every step is grounded in this repo's own specs. Where a number depends on your
 > account and I do not have it, I say so rather than guessing.

@@ -38,6 +38,10 @@ the check:
 python -m engine.cli check
 ```
 
+**1b. Pre-hash before upload.** The audience tools accept raw PII and hash it
+server-side. Do not use that path. Run `python -m engine.cli audience` first and
+upload the hashed output, so the raw list never leaves the machine.
+
 **2. Never split the audience.**
 It clears Meta's 1,000-person delivery floor *only* with both countries and all
 three verticals combined (`audiences/outreach-list.json`). Splitting by country,
@@ -76,9 +80,12 @@ Do not attempt these, and do not claim to have done them:
 
 | | |
 |---|---|
-| Create or manage audiences | **No tool exists.** `outreach-list` is uploaded by hand in Ads Manager, always. Build the file with `python -m engine.cli audience <csv>` |
+| ~~Create or manage audiences~~ | **CORRECTED 2026-09-16 — it can.** `ads_create_custom_audience` (subtype `CUSTOM`) then `ads_update_custom_audience_users`. Still build the file with `python -m engine.cli audience <csv>` first and pass pre-hashed values, so raw PII never leaves the machine |
 | B2B targeting | Does not exist on any Meta surface. This is why the custom audience exists at all |
-| Read creative assets | Contradictory across sources, untested on this account. Verify before relying on it; say so if it fails |
+| ~~Read creative assets~~ | **CORRECTED — it can.** `ads_get_ad_preview`, `ads_get_ad_images`, `ads_get_ad_videos`, `ads_get_creatives`, plus upload tools |
+| Competitor research | **`ads_library_search` exists.** Earlier docs said no |
+| Anomaly detection | **`ads_insights_anomaly_signal` is native** — no need to hand-build the videos' detector |
+| A/B testing | `ads_experiment_abtest_*` — relevant to the `capacity` vs `hours` arms |
 
 ---
 

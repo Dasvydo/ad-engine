@@ -49,8 +49,17 @@ python scripts/sync_skill_claims.py --check  # fail if it is stale
 - **No ROAS, no CPA, no conversion optimisation.** Meta wants ~50 events per ad
   set per week to leave the learning phase; this account will never supply that.
   Meta will not optimise, it will just spend. **Frequency is the primary metric.**
-- **The connector cannot create or manage audiences.** `outreach-list` is a manual
-  Ads Manager upload, every time. There is no tool and there is no workaround.
+- **The connector CAN create and populate audiences** — `ads_create_custom_audience`
+  (subtype `CUSTOM`) then `ads_update_custom_audience_users`. Verified against the
+  live tool list 2026-09-16. ⚠️ Earlier docs in this repo said the opposite; they
+  were wrong and are corrected.
+  **Still pre-hash locally** with `python -m engine.cli audience`: the MCP tool will
+  hash raw PII server-side, but `engine/audience.py` exists so the raw list never
+  leaves this machine. Pass the already-hashed values — 64-char hex passes through
+  unchanged.
+- **Live account**: `620456015062432` ("Dovydas Vinickis"), MCP-enabled, ACTIVE,
+  **currency DKK** (permanent), **no payment method**, **no Business Manager**
+  (`business_id` empty — it is a personal ad account). Min daily budget DKK 6.46.
 - **Two creative arms only**: `capacity` (untested, recommended) and `hours`
   (control). They mirror outreach-engine's arms deliberately — same variable,
   two channels. Do not add a third.
