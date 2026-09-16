@@ -34,6 +34,8 @@ python -m engine.cli check
 ```bash
 python -m engine.cli plan                    # audiences in priority order, with blockers
 python -m engine.cli check                   # claims gate over creative/
+python -m engine.cli preflight               # runbook 6.3 launch checklist; non-zero if blocked
+python -m engine.cli preflight --audience <built.csv>   # ...and size-check the built audience
 python -m engine.cli audience <src.csv>      # hash an outreach list into a Custom Audience
 python scripts/sync_skill_claims.py          # regenerate the skill's claims copy
 python scripts/sync_skill_claims.py --check  # fail if it is stale

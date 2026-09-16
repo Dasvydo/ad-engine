@@ -278,6 +278,14 @@ physically cannot absorb more. If you find yourself spending four figures a mont
 here, something is wrong — most likely you are reaching people outside the list.
 
 ### 6.3 Before you turn it on
+The mechanical half of this list is a command. It exits non-zero if anything
+blocks, and today it blocks on two real things: the `da`/`lt` copy (5.4) and the
+missing pixel (2.1). The rest of the list is yours to check.
+
+```bash
+python -m engine.cli preflight --audience queue/aud-outreach.csv
+```
+
 - [ ] `python -m engine.cli check` passes
 - [ ] You have read the copy yourself against `claims/evidence.json` — the gate is not enough
 - [ ] `da` / `lt` proofread by a native speaker, or you are running English only

@@ -95,7 +95,10 @@ def test_preflight_is_red_today_on_copy_and_pixel():
 
 
 def load_tests(loader, tests, pattern):
-    """pytest is not installed here; let `python -m unittest` run the same functions."""
+    """pytest is not installed here, so unittest runs the same plain functions.
+
+        python -m unittest discover -s tests -t tests
+    """
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
             tests.addTest(unittest.FunctionTestCase(fn, description=name))
