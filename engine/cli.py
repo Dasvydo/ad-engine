@@ -3,6 +3,7 @@
     python -m engine.cli audience <outreach.csv> --out queue/aud.csv
     python -m engine.cli check [<creative>]
     python -m engine.cli plan
+    python -m engine.cli preflight [--audience <built.csv>]
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import argparse
 import json
 from pathlib import Path
 
+from engine import preflight
 from engine.audience import from_outreach_csv
 from engine.gate import check_creative
 
@@ -29,6 +31,9 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("creative", nargs="?", type=Path)
 
     sub.add_parser("plan", help="show audiences in priority order with blockers")
+
+    f = sub.add_parser("preflight", help="run the runbook Part 6.3 launch checklist")
+    f.add_argument("--audience", type=Path, help="a built audience CSV to size-check")
 
     args = p.parse_args(argv)
 
@@ -51,6 +56,22 @@ def main(argv: list[str] | None = None) -> int:
                 print("        ", f)
                 failed = True
         return 1 if failed else 0
+
+    if args.cmd == "preflight":
+        checks = preflight.run(args.audience)
+        width = max(len(c.name) for c in checks)
+        print("preflight - docs/META-ADS-RUNBOOK.md Part 6.3\n")
+        for c in checks:
+            print(f"{c.status}  {c.name:<{width}}  {c.summary}")
+            for line in c.detail:
+                print(f"{'':6}{line}")
+        tally = "  ".join(f"{s} {sum(c.status == s for c in checks)}" for s in ("PASS", "FAIL", "SKIP"))
+        blocked = [c.name for c in checks if c.failed]
+        print(f"\n{tally}")
+        print(f"BLOCKED by: {', '.join(blocked)}" if blocked else "Mechanical checks clear.")
+        print("Not checked here: the copy itself against evidence.json, frequency cap,")
+        print("budget, pixel collecting, outreach actually running.")
+        return 1 if blocked else 0
 
     for path in sorted((ROOT / "audiences").glob("*.json")):
         spec = json.loads(path.read_text(encoding="utf-8"))

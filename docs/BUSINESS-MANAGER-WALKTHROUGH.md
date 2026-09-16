@@ -136,15 +136,66 @@ build time; without a redeploy nothing changes.
 network tab for a request to Facebook. Before consent there should be **nothing**
 — no script, no cookie. That's the gate working, not the pixel failing.
 
+✅ **This side is genuinely finished.** Audited 2026-09-16: two gates sit in front
+of the injection (`src/lib/pixel.ts:38-41`), and four events are already wired —
+`PageView`, `ViewContent` (dwell-gated on the pricing band), `Lead` on qualifier
+submit, `Schedule` on booking click. `scripts/verify-consent.mjs` asserts zero
+network, zero cookies and no `window.fbq` before consent, and exactly one script
+after. **The env var and a redeploy are the entire remaining job here.**
+*(The test is read from source, not observed passing — `node_modules` is absent
+in this container.)*
+
 ---
 
-### ☐ 8. The same pixel on doviloop.dev
-Not done yet, and it may be bigger than a copy-paste — I have an agent checking
-exactly what the product site would need. I'll report when it lands.
+### ☐ 8. The same pixel on doviloop.dev — **do NOT do this tonight**
 
-**Why it matters:** with the pixel only on the campaign page, your retargeting
-audience contains people who saw the campaign page and nobody else. The product
-site is where your traffic already is.
+Audited 2026-09-16. It is not a copy-paste, and the reason is worth reading.
+
+**The product site has no consent mechanism at all.** No banner, no cookie
+settings, no `/cookies` route, no consent storage — nothing, anywhere in
+`flow-savvy-automations`. So a Meta pixel could not lawfully fire on it even if
+you pasted one in today.
+
+**But it is not tracker-free.** Two third-party trackers already run ungated on
+every doviloop.dev page:
+
+| | Where | What it does |
+|---|---|---|
+| **RB2B** | `index.html:31-32`, inline in `<head>` | B2B visitor de-anonymisation. Fires before React mounts, every visitor |
+| **PostHog** | `src/main.tsx:7` → `src/lib/posthog.ts:28-38` | Cookies + autocapture + **session recording on**, default host `us.i.posthog.com` |
+
+**So the compliance gap is pre-existing.** The pixel would add to it, not create
+it. Whoever does this work fixes an existing problem at the same time — which is
+the good news buried in the bad.
+
+⚠️ Note the campaign site deliberately uses PostHog's **EU** host while the
+product site defaults to **US**. Doesn't falsify `eu_hosted` in
+`claims/evidence.json` — that entry is about where customer mail and KB data
+live, which is still EU. But it is an awkward look for a product sold on data
+sovereignty, and a prospect could find it.
+
+**Size of the job:** two library files port almost unchanged (`consent.ts`,
+`pixel.ts`), one consent notice needs rebuilding on the product site's shadcn +
+i18n stack in three languages, plus retrofitting the gate around RB2B and
+PostHog, widening the CSP, and a privacy-policy paragraph naming Meta.
+**Most of a day.**
+
+**The part that is not code:** gating RB2B and PostHog means every declining
+visitor vanishes from your own analytics. Session recordings drop. That is a
+business decision, not a refactor, and it is yours to make.
+
+**Why it matters for ads:** with the pixel only on the campaign page, your
+retargeting audience contains people who saw the campaign page and nobody else.
+The product site is where your traffic already is.
+
+> **Also worth knowing:** `teams.doviloop.dev` 301s to `www.doviloop.dev` — the
+> campaign page is actually served from `campaign-site-azure.vercel.app`. Since
+> `vercel.app` is a public suffix, the two properties share no first-party `_fbp`
+> cookie. One pixel ID on both is still correct, but Meta will see them as two
+> separate domains. *(Plus a likely latent bug: `revokeMetaPixel` computes the
+> cookie parent domain as `.vercel.app`, which browsers reject — so withdrawal
+> may not clear `_fbp` on the campaign host. Correct on a real doviloop.dev
+> domain. Unverified — needs a live check once a pixel ID exists.)*
 
 ---
 
