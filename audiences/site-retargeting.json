@@ -2,8 +2,9 @@
   "id": "site-retargeting",
   "type": "pixel_retargeting",
   "priority": 2,
-  "rationale": "Cheapest useful Meta spend: people who already reached doviloop.dev. Works regardless of how small the prospecting audience is, because intent has already been shown.",
-  "source": "Meta pixel on doviloop.dev",
+  "rationale": "Cheapest useful Meta spend: people who already reached the campaign landing page. Works regardless of how small the prospecting audience is, because intent has already been shown.",
+  "source": "Meta pixel on the campaign landing page (campaign-site), PageView event",
   "window_days": 90,
-  "blocked_on": "Meta pixel is not installed on doviloop.dev yet. This audience cannot be built until it is - and it needs to start collecting well before the ads run, or there is nobody in it."
+  "blocked_on": "The pixel is BUILT and consent-gated on the campaign landing page and its gate is tested (npm run verify:consent, 23/23 PASS, 2026-09-16). It is inert until VITE_META_PIXEL_ID is set in the campaign-site Vercel project and the page is redeployed. Nothing collects until then, and this audience needs a head start on the ads.",
+  "note": "Covers campaign-page traffic only. No pixel is on www.doviloop.dev, so product-site visitors are not in this pool. campaign-site/.env.example section 5 says the same ID should go on both."
 }

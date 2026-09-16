@@ -11,7 +11,13 @@ audiences/<name>.json   who      targeting specs, ranked by priority
 creative/<variant>.json the words  ad copy, one per A/B arm
 claims/evidence.json    the truth  what may be claimed, and what may not
 engine/                 the code   audience build, claims gate, export
+docs/FUNNEL-HANDOFF.md  the seam   where the click lands, and what comes back
 ```
+
+**Read `docs/FUNNEL-HANDOFF.md` first.** It is the contract with the landing page:
+the destination URL, the UTM convention that `campaign-site` already enforces in
+code, and the four pixel events the page sends back. Two of its items block the
+first ad.
 
 ---
 
@@ -83,10 +89,18 @@ commissioning new creative.
 
 ## Known state
 
-- **Meta pixel is not installed on doviloop.dev.** `site-retargeting` cannot be
-  built until it is, and it needs to start collecting well before ads run or
-  there will be nobody in it. **Do this first — it costs nothing and it is the
-  only audience that compounds.**
+- **⛔ There is no stable destination URL.** `teams.doviloop.dev` 301s to the
+  product site through a registrar URL-forward, and the landing page serves from
+  `campaign-site-azure.vercel.app`, which Meta cannot verify. **Nothing is safe to
+  put in an ad until this is fixed.** Measured 2026-09-16 — see
+  `docs/FUNNEL-HANDOFF.md`, Blocker 1.
+- **The Meta pixel is built, not live.** It is installed and consent-gated on the
+  campaign landing page, and its gate is tested (`npm run verify:consent`, 23/23
+  PASS). It stays inert until `VITE_META_PIXEL_ID` is set in that project's Vercel
+  settings and the page is redeployed. `site-retargeting` and `pricing-viewers`
+  have nobody in them until then, and both need a head start on the ads. **Do this
+  first — it costs nothing and they are the only audiences that compound.** No
+  pixel is on `www.doviloop.dev`, so product-site traffic is in neither pool.
 - **Revenue is switched off** in the product (`TEST_MODE` plus two `BYPASS_*`
   flags). Traffic can arrive and convert to a conversation, but not to a payment.
 - Danish and Lithuanian creative is drafted, **not native-checked**.

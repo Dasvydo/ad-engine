@@ -18,7 +18,23 @@
     "lt": "NEEDS_NATIVE_PROOFREAD"
   },
   "cta": "LEARN_MORE",
-  "destination": "https://doviloop.dev",
+  "destination": {
+    "_note": "The landing page, NOT doviloop.dev. doviloop.dev is the product site: it 307s to www, has no qualifier, no pixel and no UTM capture, so every paid click would be lost. See docs/FUNNEL-HANDOFF.md.",
+    "status": "BLOCKED_ON_DOMAIN",
+    "_blocked": "teams.doviloop.dev currently 301s to the product site via a registrar URL-forward. Measured 2026-09-16. Do not ship an ad against these URLs until Blocker 1 in docs/FUNNEL-HANDOFF.md is cleared.",
+    "by_locale": {
+      "en": "https://teams.doviloop.dev/",
+      "da": "https://teams.doviloop.dev/da",
+      "lt": "https://teams.doviloop.dev/lt"
+    },
+    "utm": {
+      "_note": "Fixed by campaign-site/src/lib/attribution.ts. source and medium must be these literals or the lead files itself as `direct`. content must equal this creative id - it is the A/B split key.",
+      "source": "meta",
+      "medium": "paid_social",
+      "campaign": "<market>-<audience>",
+      "content": "capacity"
+    }
+  },
   "creative_source": {
     "_note": "reel-engine renders these. Reuse rather than commissioning new video.",
     "video": "reel-engine: content/accountants.json",
