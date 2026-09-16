@@ -129,6 +129,13 @@ fires and you see what it does, promote that one to "always allow".
 or unpausing — those stay manual approvals permanently. The cost of a wrong click
 here is money.
 
+⚠️ **Do not rely on "creates paused" as your safety net.** It is a default, and
+an activate tool exists. Your approval prompt is the real control.
+
+⚠️ **Decline the financial/billing scope** if Meta's OAuth screen offers scope
+tiers (reported by a secondary source; unverified — you will see the real screen
+before I do). Nothing Claude does for you needs it.
+
 ### 3.4 Prove it works
 > List every ad account I have access to, and say which ones are MCP-enabled.
 
@@ -316,8 +323,10 @@ Things that surprise everyone the first time:
 - **Custom audience match rate is never 100%.** Half is normal. Not your fault.
 - **A rejected ad is normal.** Request review; the automated pass is aggressive.
 - **Currency and timezone are permanent.** Set at account creation, never changeable.
-- **The connector creates everything paused.** That is a safety feature. Nothing
-  spends until you deliberately unpause.
+- **The connector creates things paused** — but that is a *default*, not a
+  guardrail. An activate tool exists (`ads_activate_entity`, per a secondary
+  source), so Claude can unpause too. The thing actually protecting you is
+  keeping every write tool on "needs approval". Do that and keep it that way.
 
 ---
 

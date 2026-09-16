@@ -19,7 +19,7 @@
 | **Endpoint** | `https://mcp.facebook.com/ads` — exact, no trailing slash |
 | **Status** | Open beta. Not every advertiser has access; a connected account with no data is a queue position, not a bug |
 | **Surface** | 29 Marketing API tools: performance reporting · campaign management · catalog · signal diagnostics |
-| **Write safety** | Campaigns/ad sets/ads created by the agent land **paused**. Budget increases and material targeting changes need per-action human approval |
+| **Write safety** | Campaigns/ad sets/ads created by the agent land **paused** — a default, not a guardrail: an activate tool (`ads_activate_entity`) reportedly exists. Budget increases and material targeting changes need per-action human approval. **The approval prompt is the real control** |
 | **Requires** | Meta Business Manager with admin access + a paid Claude tier |
 
 **⚠️ The URL in the video transcripts is garbled** (`mcp.fasads.com/ads`). No such
