@@ -279,12 +279,28 @@ here, something is wrong — most likely you are reaching people outside the lis
 
 ### 6.3 Before you turn it on
 The mechanical half of this list is a command. It exits non-zero if anything
-blocks, and today it blocks on two real things: the `da`/`lt` copy (5.4) and the
-missing pixel (2.1). The rest of the list is yours to check.
+blocks. The rest of the list is yours to check.
 
 ```bash
 python -m engine.cli preflight --audience queue/aud-outreach.csv
 ```
+
+**It is red today, and both red lines are correct answers rather than bugs:**
+
+- **native copy** — `da` and `lt` are still `NEEDS_NATIVE_PROOFREAD` (5.4). Goes
+  green when a native speaker has read them, or you ship English only.
+- **audience blockers** — `site-retargeting` is blocked on a pixel that is not on
+  doviloop.dev (2.1), so that audience cannot be built and would have nobody in
+  it if it could. Goes green when the pixel is live and `blocked_on` comes off
+  the spec.
+
+Two red lines mean this account is not ready to launch. That is true, so the
+command says so. **A preflight that went green today would be lying to you.**
+
+It also prints what it *cannot* check rather than letting a green run imply
+completeness: whether the copy reads true against `evidence.json`, the frequency
+cap, the budget arithmetic, whether the pixel is collecting, and whether outreach
+is actually running.
 
 - [ ] `python -m engine.cli check` passes
 - [ ] You have read the copy yourself against `claims/evidence.json` — the gate is not enough
