@@ -60,6 +60,17 @@ python scripts/sync_skill_claims.py --check  # fail if it is stale
 - **Live account**: `620456015062432` ("Dovydas Vinickis"), MCP-enabled, ACTIVE,
   **currency DKK** (permanent), **no payment method**, **no Business Manager**
   (`business_id` empty — it is a personal ad account). Min daily budget DKK 6.46.
+- **Live on the account (created 2026-09-16, both PAUSED, nothing spending):**
+  campaign `120252014169110563` "DoviLoop · EN practice · DK+LT" — `OUTCOME_AWARENESS`,
+  CBO DKK 35/day · ad set `120252014200110563` — `REACH`/`IMPRESSIONS`, DK+LT,
+  ages 30-60 as a **hard** cap (`advantage_audience: 0`), frequency cap 1 per 4 days,
+  geo-only (no interest IDs — the connector forbids inventing them and has no
+  targeting-search tool). DSA beneficiary and payor both `DoviLoop`, founder-confirmed.
+  **This is a practice campaign, not ICP validation** — English copy, broad interest.
+  The number it buys is the real CPM. ⚠️ Read the **country breakdown**: LT is cheaper,
+  so Meta will skew delivery there and the headline CPM will read as Lithuania's.
+- **Blocking a live ad:** no payment method, and **no Facebook Page** — an ad's
+  creative needs a `page_id`, and there is no create-page tool. Both are founder-only.
 - **Two creative arms only**: `capacity` (untested, recommended) and `hours`
   (control). They mirror outreach-engine's arms deliberately — same variable,
   two channels. Do not add a third.
