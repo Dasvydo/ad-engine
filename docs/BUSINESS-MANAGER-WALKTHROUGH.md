@@ -50,6 +50,33 @@ Phase 0 is 100% manual, and no amount of agent parallelism changes that.
 **Claude becomes useful the moment there is an account with data in it.** Not
 before. Everything below is the price of admission.
 
+---
+
+## The path to a live ad — everything, in order
+
+Status as of 2026-09-16. ✅ done · 🔨 yours · 🤖 mine
+
+| # | Step | Who |
+|---|---|---|
+| 1 | Ad account exists — `620456015062432` | ✅ |
+| 2 | Campaign + ad set, paused | ✅ 🤖 |
+| 3 | DSA advertiser = `DoviLoop` | ✅ |
+| 4 | **Facebook Page** — create, fill, post 2-3 times, publish | 🔨 **blocking** |
+| 5 | **Payment method** — card on the ad account | 🔨 **blocking** |
+| 6 | Confirm the Page is visible to the ad account | 🤖 one call |
+| 7 | Ad creative image — generate on brand | 🤖 (Canva / HiggsField) |
+| 8 | Ad copy — English, through `engine.cli check` **and** read by hand | 🤖 |
+| 9 | Build the ad, still paused | 🤖 |
+| 10 | Look at the preview and approve it | 🔨 |
+| 11 | Unpause | 🔨 your word, then either of us |
+
+**Only 4 and 5 are blocking.** Everything from 6 on is minutes once they exist.
+
+**Not on this path, deliberately:** the pixel, the outreach list, the `da`/`lt`
+proofread. None of them block *this* campaign — it is Reach, English, broad geo.
+The pixel is still worth starting tonight because it is a clock (§2), but it is a
+separate track.
+
 ⚠️ **One security decision, and take it seriously.** When you connect the
 connector, Meta's OAuth screen offers scope tiers — reportedly including a
 separate **financial/billing scope**. *(Reported by a secondary source, not
@@ -76,20 +103,62 @@ Meta asks, and a mismatch is a slow problem to unwind.
 
 ---
 
-### ☐ 2. A Facebook Page for DoviLoop
+### ☐ 2. A Facebook Page for DoviLoop — **the current blocker**
+
 **You cannot run ads without one.** There is no such thing as an ad with no Page
-behind it — the Page is the "from" on the ad.
+behind it. The Page is the "from" on the ad: its name and profile picture *are*
+the sender your audience sees. Verified 2026-09-16 — `ads_get_ad_account_pages`
+on the live account returns `[]`.
 
-It does not need followers, posts, or activity. It needs to exist, carry the
-logo, and be **owned by the Business Manager, not by your personal profile.**
+Pages are always created by a *person*, so do this logged into your personal
+Facebook account. **facebook.com/pages/create**
 
-Business Settings → Accounts → Pages → Add. Create a new one if you don't have one.
+**Fill it in like this:**
 
-*Worked when:* the Page appears under Business Settings → Pages, not just on your
-personal profile.
+| Field | Value | Why |
+|---|---|---|
+| Name | `DoviLoop` | Matches the DSA advertiser already set on the ad set |
+| Category | **Software Company** (you get up to 3 — "Business Service" is a fair second) | Category shapes who Meta thinks you are |
+| Bio | One line, no numbers — see below | The claims gate applies here too |
+| Website | `https://doviloop.dev` | |
+| Username | `@doviloop` if free | Claim it now; someone else taking it later is a real annoyance |
 
-> If you already made a DoviLoop Page from your personal account, transfer it in
-> rather than making a second one. Two Pages for one brand is a mess to undo.
+**Profile picture — you already have it:**
+`flow-savvy-automations/public/doviloop-icon.png`, 1024×1024. Ideal; upload as is.
+
+**Cover photo — you do not have one.** Roughly **1640×856**, brand amber
+`#F59B0A` on cream `#FFF0E5` (`brand-kit/DOVILOOP_BRAND_COLORS.md`). Keep anything
+that matters centred — Facebook crops covers differently on mobile and desktop.
+Canva and HiggsField are both connected here; ask and I'll generate one.
+
+**A bio that clears the claims gate.** The gate applies to a Page bio exactly as
+it applies to an ad — a public factual assertion is a public factual assertion.
+Safe, because every clause resolves to a `verified` entry:
+
+> *Client email replies, drafted from your firm's own fees, deadlines and
+> policies — waiting in Outlook. Nothing sends until you read it.*
+
+Do **not** write "save hours", "trusted by N firms", or any percentage.
+
+---
+
+⚠️ **Post two or three things before you run a single ad.**
+
+A brand-new Page with zero posts running paid ads is the exact shape of a scam
+account. It raises your odds of review rejection, and anyone who clicks through
+to the Page sees an empty shell and leaves. Three short posts is enough — what
+DoviLoop does, who it's for, one screenshot. It costs you twenty minutes and it
+is the cheapest credibility you will ever buy.
+
+**Publish the Page.** A Page left unpublished cannot run ads.
+
+*Worked when:* I re-run the page check and it returns a `page_id` instead of `[]`.
+Tell me when it's up and I'll confirm.
+
+> **Business Manager is not required.** Your ad account is personal and works
+> fine that way. If you make the Page from the same personal profile, the ad
+> account can use it. Moving both under a Business Manager later is tidier —
+> it is not blocking, so don't let it delay you tonight.
 
 ---
 
