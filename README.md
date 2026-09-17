@@ -43,8 +43,16 @@ account-based air cover over outreach, not a prospecting channel:
 > minimum — but only with both countries and all three verticals combined. A
 > single-vertical slice will under-deliver.
 
-Audiences are ranked accordingly: `outreach-list` (1), `site-retargeting` (2),
-`broad-interest` (3, kept for practice rather than results).
+Audiences are ranked accordingly: `outreach-list` (1), `site-retargeting` and
+`pricing-viewers` (2), `broad-interest` (3, kept for practice rather than results).
+
+**That minimum decided the ad-set shape.** Because the list clears 1,000 only when
+both countries are combined, it cannot be split into a Danish ad set and a
+Lithuanian one — that split *is* the slice the note above warns about. Decided
+2026-09-17: **one combined ad set, on the English landing page.** Delivery over
+localisation, on the one audience that cannot have both. The two pixel audiences
+are built from page traffic and arrive already language-sorted, so they keep their
+`/da` and `/lt` rows. Full matrix in `docs/FUNNEL-HANDOFF.md`.
 
 All PII is SHA-256 hashed after normalisation, per Meta's spec, so the raw list
 never leaves this machine.

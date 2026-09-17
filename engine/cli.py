@@ -82,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
     for spec in sorted(specs, key=lambda s: (s["priority"], s["id"])):
         print(f"[{spec['priority']}] {spec['id']:20s} {spec['type']}")
         print(f"      {spec['rationale'][:100]}...")
+        if spec.get("decision"):
+            print(f"      DECIDED: {spec['decision'][:100]}...")
         if spec.get("blocked_on"):
             print(f"      BLOCKED: {spec['blocked_on'][:100]}...")
         if spec.get("warning"):

@@ -7,5 +7,9 @@
   "build": "python -m engine.cli audience <outreach.csv> --out queue/aud-outreach.csv",
   "expected_size": "~2,000 people (~750 firms x 2-3 contacts)",
   "meta_minimum": 1000,
-  "notes": "Above Meta's 1,000 floor only when both countries and all three verticals are combined. A single-vertical slice will under-deliver."
+  "notes": "Above Meta's 1,000 floor only when both countries and all three verticals are combined. A single-vertical slice will under-deliver.",
+  "ad_sets": 1,
+  "landing": "https://teams.doviloop.dev/  (English)",
+  "utm_campaign": "global-outreach-list",
+  "decision": "2026-09-17, founder: ONE combined ad set on the English page. Splitting this list into DK and LT ad sets is the single-vertical slice the note above warns about, so delivery was chosen over localisation. Rejected alternative: two ad sets at /da and /lt under dk-outreach-list and lt-outreach-list. Consequence: this is the one audience that cannot use the Danish and Lithuanian pages, so language stays a live explanation for a flat result here and the ad set cannot test it. See docs/FUNNEL-HANDOFF.md."
 }

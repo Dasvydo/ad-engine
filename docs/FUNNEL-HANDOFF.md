@@ -126,7 +126,7 @@ outreach links; ads should not need it.
 
 ---
 
-## The ad-set matrix — and the conflict inside it
+## The ad-set matrix
 
 One row per ad set. `<creative_id>` is `capacity` or `hours`; both run in every
 ad set, because the arm is the variable being tested.
@@ -146,11 +146,14 @@ Full form, every time:
 https://teams.doviloop.dev/da?utm_source=meta&utm_medium=paid_social&utm_campaign=dk-retargeting&utm_content=capacity
 ```
 
-Where an English page is deliberately served to a DK or LT audience, append
-`&market=dk` or `&market=lt`. The ad set knows the market even when the page
-cannot infer it from the locale, and `resolveMarket()` reads it.
+`&market=` exists as an override for when an ad set knows a market the page
+cannot infer from its locale (`resolveMarket()` reads it). **No row above uses
+it.** The two English rows are both mixed-country audiences, so there is no
+single true value to send, and tagging one country would be a false label on
+every lead from the other. Those leads carry `market: global`, which is the
+honest answer — `utm_campaign` still says which audience they came from.
 
-### ⚠ Why the top-priority audience has no DK and LT rows
+### Why the top-priority audience has no DK and LT rows — decided 2026-09-17
 
 **You cannot both language-split the outreach audience and keep it targetable.**
 
@@ -159,20 +162,33 @@ cannot infer it from the locale, and `resolveMarket()` reads it.
 three verticals combined. A single-vertical slice will under-deliver."* Splitting
 it into a DK ad set and an LT ad set is exactly that slice.
 
-So the top-priority audience gets **one** ad set on the English page. That is a
-real cost: the ICP brief calls Danish and Lithuanian copy *"the most defensible
-thing on the board"*, and this is the one audience that cannot use it.
+**Decision: one combined ad set on the English page.** Founder, 2026-09-17,
+choosing delivery over localisation on this audience. The rejected alternative was
+two ad sets at `/da` and `/lt` with `utm_campaign` of `dk-outreach-list` and
+`lt-outreach-list`, accepting under-delivery in exchange for native-language
+landing pages.
 
-The alternative, if under-delivery is acceptable in exchange for native-language
-landing pages, is two ad sets at `/da` and `/lt` with `utm_campaign` of
-`dk-outreach-list` and `lt-outreach-list`. **That is a founder decision, not a
-default** — nobody has made it, and this file is not making it either.
+The cost is real and worth naming: the ICP brief calls Danish and Lithuanian copy
+*"the most defensible thing on the board"*, and this is the one audience that
+cannot use it. **If this ad set under-performs, language is a live hypothesis for
+why** — and it is the one variable the ad set is structurally unable to test. Do
+not read a flat result here as a verdict on the `capacity` / `hours` arms without
+saying that out loud.
 
 The two pixel audiences have no such problem: they are built from page traffic,
-which already arrives language-sorted by which locale route it landed on.
+which already arrives language-sorted by which locale route it landed on. DK and
+LT native copy still matters there, and those rows use it.
 
 (The 1,000 figure is this repo's own assertion in `outreach-list.json`. Not
 re-checked against Meta's current documented minimum — **unverified**.)
+
+### What the decision unblocks
+
+Both day-one ad sets — `outreach-list` and `broad-interest` — now land on the
+English page with English creative. **Neither is blocked on the Danish and
+Lithuanian proofread**, which was previously sequenced ahead of the first ad.
+The proofread still gates the four `/da` and `/lt` rows, and those are blocked on
+the pixel collecting anyway, so it is no longer on the critical path.
 
 ## ✅ What the page already gives Meta — nothing to rebuild
 
@@ -306,10 +322,13 @@ Nothing below can be skipped by doing a later step first.
 4. Verify `doviloop.dev` in Business Manager. *(founder)*
 5. Let the pixel collect. `site-retargeting` and `pricing-viewers` have nobody in
    them until it does, and both need a head start on the ads.
-6. Native proofread of `da` and `lt` creative — every non-English field in
-   `creative/*.json` still reads `NEEDS_NATIVE_PROOFREAD`, and the same caveat is
-   open on the landing copy (`campaign-site/BLOCKED.md` §6).
-7. `python -m engine.cli check --landing ../campaign-site/src/content` must pass
-   on the creative. Then ads.
+6. `python -m engine.cli check --landing ../campaign-site/src/content` must pass
+   on the creative. **Then the first ads** — `outreach-list` and `broad-interest`,
+   both English, both on `/`.
+7. Native proofread of `da` and `lt` — every non-English field in `creative/*.json`
+   still reads `NEEDS_NATIVE_PROOFREAD`, and the same caveat is open on the landing
+   copy (`campaign-site/BLOCKED.md` §6). Gates only the four `/da` and `/lt` ad
+   sets, which step 5 is holding regardless. **Off the critical path since the
+   decision of 2026-09-17.**
 
 Price is deliberately absent from this list. See misalignment 4.
