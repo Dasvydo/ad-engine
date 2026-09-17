@@ -105,7 +105,7 @@ commissioning new creative.
 ## Known state
 
 - **⛔ There is no stable destination URL.** `teams.doviloop.dev` 301s to the
-  product site through a registrar URL-forward, and the landing page serves from
+  product site through a Porkbun URL Forward (CNAME to `pixie.porkbun.com`), and the landing page serves from
   `campaign-site-azure.vercel.app`, which Meta cannot verify. **Nothing is safe to
   put in an ad until this is fixed.** Measured 2026-09-16 — see
   `docs/FUNNEL-HANDOFF.md`, Blocker 1.

@@ -49,16 +49,80 @@ reads as staging. (Meta Business Help `321167023127050`; consistent with Vercel'
 own public-suffix troubleshooting. Read, not tested against a live Business
 Manager — **unverified in practice**.)
 
-### The fix — founder, ~10 min plus DNS propagation
+### Who is actually serving it — measured 2026-09-17
 
-1. Delete the URL-forward on the `teams` record at the DNS provider for `doviloop.dev`.
-2. Vercel → the `campaign-site` project → **Settings → Domains → Add** → `teams.doviloop.dev`.
-3. Add `CNAME  teams  →  cname.vercel-dns.com`. Not an A record. No Cloudflare
-   orange cloud on first issuance or the TLS challenge fails.
-4. Wait for green in Vercel; the certificate is automatic.
-5. Load `/`, `/da`, `/lt` on the custom domain.
+| Lookup | Answer |
+|---|---|
+| `doviloop.dev` NS | `salvador` · `curitiba` · `maceio` · `fortaleza` `.ns.porkbun.com` |
+| `teams.doviloop.dev` CNAME | **`pixie.porkbun.com`** → `207.207.210.107` / `.229` |
+| TLS on the teams host | Let's Encrypt, `CN=doviloop.dev`, SAN `*.doviloop.dev` |
 
-Already written up in full at `campaign-site/README.md` §4.
+`pixie.porkbun.com` is **Porkbun's URL-forwarding host**. So this is not a
+misconfigured DNS record to repoint — it is a URL Forward entry in the Porkbun
+control panel, and it has to be deleted there. The wildcard certificate is why
+the hop is silent: it terminates TLS correctly and then 301s, which is what makes
+a link checker pass it.
+
+### The fix — founder, ~15 min plus propagation
+
+Order matters. Porkbun creates the forwarding record itself, so a hand-written
+CNAME for the same host will collide with it until the forward is gone.
+
+**1 · Delete the URL forward.**
+Porkbun → *Domain Management* → `doviloop.dev` → **URL Forwarding**. Find the row
+for the `teams` subdomain and delete it.
+
+**2 · Confirm the record actually went.**
+Same domain → **DNS Records**. There should now be no `teams` record at all. If an
+`ALIAS` or `CNAME` pointing at `pixie.porkbun.com` is still listed, delete it by
+hand — the forward's record occasionally outlives the forward.
+
+Check from a terminal:
+
+```
+curl -sS "https://dns.google/resolve?name=teams.doviloop.dev&type=CNAME"
+```
+
+`pixie.porkbun.com` must be gone from the answer. Porkbun's default TTL is 600s,
+so allow ten minutes (default not re-verified — **unverified**).
+
+**3 · Add the domain in Vercel.**
+Vercel → the **campaign-site** project → *Settings* → *Domains* → **Add** →
+`teams.doviloop.dev`. Vercel then shows the record it wants. Use the value it
+prints, not one from memory: it has been issuing per-project CNAME targets rather
+than the old shared `cname.vercel-dns.com` for some time.
+
+**4 · Create that record at Porkbun.**
+DNS Records → Add:
+
+| Type | Host | Answer | TTL |
+|---|---|---|---|
+| `CNAME` | `teams` | *(whatever Vercel printed)* | 600 |
+
+A subdomain takes a real `CNAME`; Porkbun's `ALIAS` type is for the apex and is
+not needed here.
+
+**5 · Wait for the certificate.**
+The domain goes green in Vercel on its own, usually under two minutes once DNS
+has propagated. Nothing to click.
+
+**6 · Prove it end to end.**
+
+```
+curl -sS -o /dev/null -w "%{http_code} %{url_effective}\n" -L https://teams.doviloop.dev/
+curl -sS https://teams.doviloop.dev/ | grep -o "<title>[^<]*</title>"
+```
+
+Expected: **`200`**, no redirect chain, and the title **`DoviLoop for teams`**.
+If the title says *"DoviLoop — The inbox assistant that runs on your knowledge"*
+you are still landing on the product site and the forward is not gone.
+
+Then check all three routes load on a hard refresh — `/`, `/da`, `/lt`. The SPA
+rewrite in `vercel.json` already covers them.
+
+**7 · Only now, the origin.**
+Set `VITE_SITE_ORIGIN=https://teams.doviloop.dev` in the Vercel project and
+redeploy. See the next section for why this is last rather than first.
 
 ### One setting that must follow the DNS change
 
@@ -265,7 +329,7 @@ regardless. Treat `roi_multiple` as live whether or not a scan mentions it.
 - Create the pixel in Events Manager, then paste its ID into Vercel as
   `VITE_META_PIXEL_ID` and redeploy.
 - Verify `doviloop.dev` in Business Manager.
-- Remove the `teams` URL-forward and add the domain in Vercel (Blocker 1).
+- Delete the `teams` URL Forward at **Porkbun** and add the domain in Vercel (Blocker 1).
 
 ---
 
@@ -315,7 +379,8 @@ Four. The first three are fixed in this change; the fourth is flagged, not settl
 
 Nothing below can be skipped by doing a later step first.
 
-1. Remove the `teams` URL-forward · add the domain in Vercel · `CNAME`. *(founder, ~10 min + DNS)*
+1. Delete the `teams` URL Forward at Porkbun · add the domain in Vercel · `CNAME`.
+   *(founder, ~15 min + propagation — full runbook under Blocker 1)*
 2. Set `VITE_SITE_ORIGIN=https://teams.doviloop.dev` in Vercel · redeploy. No
    code change — it was a literal until 2026-09-17 and is now a variable.
 3. Create the pixel · set `VITE_META_PIXEL_ID` in Vercel · redeploy. *(founder)*
