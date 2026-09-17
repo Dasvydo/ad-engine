@@ -42,3 +42,28 @@ def test_small_audience_is_flagged_unusable(tmp_path):
     src.write_text("email,firstName,lastName,country\na@b.dk,A,B,DK\n")
     build = from_outreach_csv(src, tmp_path / "o.csv")
     assert build.rows == 1 and not build.usable and "1,000" in build.warning
+
+
+def test_our_own_price_passes():
+    """A price we set is a fact we control, so the offer's core line ships."""
+    v = check("One price for the whole firm. 199 USD a month, up to twenty people.")
+    assert v.passed, v.failures
+
+
+def test_naming_a_rival_is_blocked():
+    """The strongest line the offer has is the one we are least entitled to
+    write: rival rates came off a round-up, not a vendor page."""
+    v = check("Fyxer charges 30 USD a seat. DoviLoop is 199 for the firm.")
+    assert not v.passed and any("competitor_price" in f for f in v.failures)
+
+
+def test_characterising_rival_billing_is_blocked():
+    """Even without naming anyone, 'they charge per seat' is the same claim
+    from the same unverified source."""
+    v = check("Most email tools charge per seat. This one does not.")
+    assert not v.passed and any("rivals_charge_per_seat" in f for f in v.failures)
+
+
+def test_our_coverage_claim_passes():
+    v = check("Drafts are pooled across the firm, not rationed per person.")
+    assert v.passed, v.failures

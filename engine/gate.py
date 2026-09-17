@@ -16,13 +16,28 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE = ROOT / "claims" / "evidence.json"
 
+# Rivals we might be tempted to name. Kept as one list so a pattern and the
+# copy that trips it agree on the spelling, and so adding a rival is one edit.
+_RIVALS = ("fyxer", "superhuman", "copilot", "jace")
+
 # Patterns that assert something measurable. Each must be backed or removed.
+#
+# The last two are about somebody else's pricing rather than our own outcomes,
+# and they were added on 2026-09-17 with the two package offer. The offer's
+# strongest argument is that a per-seat rival gets more expensive as a firm
+# grows and we do not, which makes a rival's rate the single most quotable
+# number we have and the one we are least entitled to quote: those figures came
+# off pricing round-ups, not vendor pages. An ad may say what OUR price does
+# without characterising what anyone else's does, so naming a rival at all
+# trips the gate until somebody reads the rate at source.
 _RISKY = (
     (re.compile(r"\b\d+\s*(hours?|hrs?|timer|valand)", re.I), "hours_saved"),
     (re.compile(r"\bsaves?\s+\d", re.I), "hours_saved"),
     (re.compile(r"\b(trusted by|used by|join)\s+\d", re.I), "customer_count"),
     (re.compile(r"\b\d+\s*(firms?|companies|customers|clients)\s+(use|trust)", re.I), "customer_count"),
     (re.compile(r"\d+\s*%", re.I), "percentage_claim"),
+    (re.compile(r"\b(" + "|".join(_RIVALS) + r")\b", re.I), "competitor_price"),
+    (re.compile(r"\b(per|a|each)\s+(seat|user|mailbox)\b", re.I), "rivals_charge_per_seat"),
 )
 
 

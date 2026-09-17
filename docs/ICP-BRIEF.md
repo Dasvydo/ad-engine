@@ -1,6 +1,6 @@
 # ICP + Offer brief
 
-> Locked 2026-08-31. Shared by three projects: **reel-engine** (this repo),
+> ICP locked 2026-08-31, offer repriced 2026-09-17. Shared by three projects: **reel-engine** (this repo),
 > **outreach-engine**, **ad-engine**. Canonical source lives in
 > `flow-savvy-automations/docs/handoff/ICP_LOCKED.md` + `OFFER_LOCKED.md`.
 > This is the working copy — if the two disagree, the canonical one wins.
@@ -43,18 +43,37 @@ clinics and patient data · enterprise with procurement.
 
 ## Offer
 
-| | Design partner (first 10) | Standard |
+**Repriced 2026-09-17.** The per-seat design-partner rate below this line is dead;
+it was never founder-stated and it contradicted the flat fee the campaign page
+sells. The live offer is two flat packages, and the only place either price may be
+written down is `campaign-site/src/lib/offer.ts`. The costing behind them is in
+`flow-savvy-automations/docs/economics/OFFER.md`.
+
+| | Desk | Firm |
 |---|---|---|
-| Price | **$49/seat/mo**, locked 12 months | $99/seat/mo, min 10 seats |
-| Onboarding | Waived | $750, waived annually |
-| Exchange | Logo, case study, testimonial, monthly feedback call | — |
+| Price | **$149/mo**, whole firm | **$199/mo**, whole firm |
+| Mailboxes covered | up to 10 | up to 20 |
+| Drafts per month, pooled | 4,000 | 8,000 |
+| Setup | $500, waived for the first 5 firms | $500, waived for the first 5 firms |
+
+Flat, not per seat: the bill does not move when the firm hires. At 20 people that
+is under $10 a head. **Above 20 people it is a custom quote** — past that a flat
+fee stops being generous and starts being careless, and WF4's polling window tops
+out near 52 mailboxes across all customers anyway.
+
+**The five founding places are real capacity, not a device.** WF4 polls every 60s
+at ~0.8s per mailbox; at 70% headroom that is ~52 mailboxes in total. The trade is
+the setup fee waived, never a lower monthly fee, so the price a reader sees does
+not depend on when they read it.
 
 **Delivered:** we build the knowledge base (fees, deadlines, checklists,
 engagement and policy terms) · a voice profile per person · 90-minute kickoff
-workshop · monthly tune-up · new hires free forever.
+workshop · monthly tune-up · new hires free inside the coverage.
 
-**Guarantee:** we build the knowledge base first; if the drafts aren't good enough
-to send after 30 days, they don't pay and they keep the knowledge base.
+**Guarantee:** if DoviLoop does not put 150 usable drafts into the team's Outlook
+in the first 30 days, that month is free. Counted from n8n execution records, so
+the customer tracks nothing, and set well under what the smallest covered firm is
+expected to produce.
 
 ## How to talk about it
 
@@ -88,4 +107,15 @@ Flagged so no project treats them as settled:
 
 - **The "capacity" framing** — reasoned from the prospect rejecting the ROI lever,
   but untested in market. **Highest-value thing to A/B first.**
-- **The $49 design-partner rate** — never founder-stated.
+- **The $149 / $199 flat packages** — founder-decided 2026-09-17, costed against
+  measured unit costs, but never yet put in front of a buyer. Both clear the fixed
+  monthly bill inside the capacity the polling window allows; neither has been
+  tested for whether a DK firm reads $149 as cheap or as suspect.
+- **Every competitor price the offer argues against.** Fyxer, Superhuman and
+  Copilot rates came off pricing round-ups, not vendor pages. `claims/evidence.json`
+  marks `competitor_price` and `rivals_charge_per_seat` UNVERIFIED and the gate
+  blocks any ad that names a rival or characterises their billing. Read each rate
+  at source, record the URL and date, then flip them.
+- **doviloop.dev still sells Managed at $89/seat** — $890 for the 10-person firm
+  this offer charges $149. Both pages are live. Deliberately left standing while
+  there are no customers; revisit before real traffic hits both.

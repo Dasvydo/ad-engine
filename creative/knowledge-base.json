@@ -1,0 +1,28 @@
+{
+  "id": "knowledge-base",
+  "framing": "knowledge-base",
+  "hypothesis": "NEW ARM, added 2026-09-17. Tests the differentiator rather than the category: rival tools learn how you write, this one learns what your firm knows. If this arm wins, the positioning is 'your firm's answers' and not 'AI email'. UNTESTED.",
+  "_gate_note": "The contrast is stated as what WE do, never as what a named rival does not. own_knowledge_base and per_person_voice are both verified; competitor_price and rivals_charge_per_seat are not.",
+  "primary_text": {
+    "en": "An assistant that has read your sent mail can copy how you write. It still cannot tell a client what your fee is, when the deadline falls, or what you need from them before month end.\n\nDoviLoop reads your website, your documents and one short interview, and answers from those. Your fees. Your deadlines. Your policies.\n\nThe reply is waiting in Outlook, in that person's own words. Nothing sends until they read it.",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "headline": {
+    "en": "It knows what your firm charges",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "description": {
+    "en": "Grounded in your documents, not the internet",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "cta": "LEARN_MORE",
+  "destination": "https://doviloop.dev",
+  "creative_source": {
+    "_note": "reel-engine renders these. Reuse rather than commissioning new video.",
+    "video": "reel-engine: content/accountants.json",
+    "still": "reel-engine: --still frame from the same job"
+  }
+}

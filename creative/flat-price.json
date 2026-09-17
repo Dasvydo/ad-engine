@@ -1,0 +1,28 @@
+{
+  "id": "flat-price",
+  "framing": "flat-price",
+  "hypothesis": "NEW ARM, added 2026-09-17 with the two package offer. Tests price shape as the hook rather than the outcome: a fee that does not move when the firm grows. The other two arms argue from what the product does; this one argues from what the bill does. UNTESTED.",
+  "_gate_note": "Carries our own price only. Naming a rival's rate, or saying what rivals charge per seat, trips the gate until competitor_price is read off vendor pages. See claims/evidence.json.",
+  "primary_text": {
+    "en": "Hire someone and your software bill goes up. Every tool, every month, for as long as they work there.\n\nDoviLoop does not work that way. 199 USD a month covers the whole firm, up to twenty people. The eleventh person costs nothing extra, and neither does the twentieth.\n\nDrafts land in Outlook in each person's own words, answered from your own fees, deadlines and policies. Nothing sends until they read it. Nothing leaves Europe.",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "headline": {
+    "en": "One price for the whole firm",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "description": {
+    "en": "Accounting, admin and broker firms on Microsoft 365",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "cta": "LEARN_MORE",
+  "destination": "https://doviloop.dev",
+  "creative_source": {
+    "_note": "reel-engine renders these. Reuse rather than commissioning new video.",
+    "video": "reel-engine: content/accountants.json",
+    "still": "reel-engine: --still frame from the same job"
+  }
+}
