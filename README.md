@@ -55,6 +55,11 @@ never leaves this machine.
 backs.** `claims/evidence.json` records what may be claimed; `engine/gate.py`
 scans copy for measurable assertions and blocks any that aren't verified.
 
+`--landing` points the same scan at the landing page's copy, because the ad and
+the page behind the click are one unit to a reader. Those findings are advisory
+and do not fail the run: the page may state a modelled figure while carrying its
+disclosure in the same eyeline, and an ad may not state it at all.
+
 Currently blocked, deliberately:
 
 | Claim | Why |
@@ -62,6 +67,8 @@ Currently blocked, deliberately:
 | Any time-saving number | No customer outcome exists. The pricing page's "10 hours" is a model, not an observation. |
 | "Trusted by N firms", logos, testimonials | Zero closed customers as of 2026-08-31. |
 | Any percentage | Nothing has been measured. |
+| Any money-saved figure | The landing page renders one (`430 USD saved per month, for each person`). It is a model, labelled as one on the page. An ad carries no disclosure, so it may not echo it. |
+| Any return multiple — `12x`, "pays for itself" | Computed on the page from that same modelled saving, and it moves whenever the price moves. |
 
 Currently allowed, because each is a verifiable product fact: never auto-sends ·
 never leaves Outlook · EU-hosted · answers from the firm's own documents · a

@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 from engine.audience import from_outreach_csv
-from engine.gate import check_creative
+from engine.gate import check_creative, check_landing
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -27,6 +27,13 @@ def main(argv: list[str] | None = None) -> int:
 
     c = sub.add_parser("check", help="run the claims gate over creative")
     c.add_argument("creative", nargs="?", type=Path)
+    c.add_argument(
+        "--landing",
+        type=Path,
+        metavar="DIR",
+        help="also gate the landing page copy, e.g. ../campaign-site/src/content. "
+        "The ad and the page behind the click are one unit; see docs/FUNNEL-HANDOFF.md",
+    )
 
     sub.add_parser("plan", help="show audiences in priority order with blockers")
 
@@ -50,10 +57,29 @@ def main(argv: list[str] | None = None) -> int:
             for f in verdict.failures:
                 print("        ", f)
                 failed = True
+
+        if args.landing:
+            if not args.landing.is_dir():
+                print(f"\nlanding copy: {args.landing} is not a directory")
+                return 1
+            print(f"\nlanding copy ({args.landing})")
+            print("  Advisory, and it does not change the exit code. The page is allowed to")
+            print("  state a modelled figure because it carries the disclosure in the same")
+            print("  eyeline. An ad carries none, so nothing below may be echoed into one.")
+            print()
+            for name, verdict in check_landing(args.landing).items():
+                print(("  CLEAN " if verdict.passed else "  CLAIMS"), name)
+                for f in verdict.failures:
+                    print("          ", f)
+            print("\n  Strings are joined across neighbours, so a hit can be two unrelated")
+            print("  fields rather than one sentence. Look before rewriting.")
+
         return 1 if failed else 0
 
-    for path in sorted((ROOT / "audiences").glob("*.json")):
-        spec = json.loads(path.read_text(encoding="utf-8"))
+    # Sorted by priority, not by filename. With two audiences sharing priority 2
+    # the alphabetical order read as if the ranking had been ignored.
+    specs = [json.loads(p.read_text(encoding="utf-8")) for p in (ROOT / "audiences").glob("*.json")]
+    for spec in sorted(specs, key=lambda s: (s["priority"], s["id"])):
         print(f"[{spec['priority']}] {spec['id']:20s} {spec['type']}")
         print(f"      {spec['rationale'][:100]}...")
         if spec.get("blocked_on"):

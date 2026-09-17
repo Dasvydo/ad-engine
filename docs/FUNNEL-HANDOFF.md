@@ -60,18 +60,21 @@ Manager — **unverified in practice**.)
 
 Already written up in full at `campaign-site/README.md` §4.
 
-### One code change that must follow the DNS change
+### One setting that must follow the DNS change
 
-`campaign-site/src/LocalePage.tsx:26` pins
+The page declares its own origin in `canonical`, `og:url` and every `hreflang`
+alternate. Meta scrapes `og:url` to build the ad's link preview, so an ad pointing
+at one origin while the page names another is a mismatch visible **inside the ad**.
 
-```ts
-const SITE_ORIGIN = 'https://campaign-site-azure.vercel.app';
+It was a literal in `campaign-site/src/LocalePage.tsx:26`. As of 2026-09-17 it
+reads `VITE_SITE_ORIGIN`, defaulting to the same deployment URL — **behaviour
+today is unchanged**. On cutover set
+
+```
+VITE_SITE_ORIGIN=https://teams.doviloop.dev
 ```
 
-and that origin is written into `canonical`, `og:url` and every `hreflang`
-alternate. Once `teams.doviloop.dev` serves the page, flip this to
-`https://teams.doviloop.dev` and redeploy — otherwise the ads point at one origin
-while the page declares another.
+in the Vercel project and redeploy. No code edit, no rebuild from a branch.
 
 ### Domain to verify in Business Manager
 
@@ -123,6 +126,54 @@ outreach links; ads should not need it.
 
 ---
 
+## The ad-set matrix — and the conflict inside it
+
+One row per ad set. `<creative_id>` is `capacity` or `hours`; both run in every
+ad set, because the arm is the variable being tested.
+
+| Ad set | Audience | Lands on | `utm_campaign` | Extra |
+|---|---|---|---|---|
+| Outreach list, combined | `outreach-list` | `/` (en) | `global-outreach-list` | — |
+| Retargeting · DK | `site-retargeting` | `/da` | `dk-retargeting` | — |
+| Retargeting · LT | `site-retargeting` | `/lt` | `lt-retargeting` | — |
+| Pricing viewers · DK | `pricing-viewers` | `/da` | `dk-pricing-viewers` | — |
+| Pricing viewers · LT | `pricing-viewers` | `/lt` | `lt-pricing-viewers` | — |
+| Broad interest (practice) | `broad-interest` | `/` (en) | `global-broad-interest` | — |
+
+Full form, every time:
+
+```
+https://teams.doviloop.dev/da?utm_source=meta&utm_medium=paid_social&utm_campaign=dk-retargeting&utm_content=capacity
+```
+
+Where an English page is deliberately served to a DK or LT audience, append
+`&market=dk` or `&market=lt`. The ad set knows the market even when the page
+cannot infer it from the locale, and `resolveMarket()` reads it.
+
+### ⚠ Why the top-priority audience has no DK and LT rows
+
+**You cannot both language-split the outreach audience and keep it targetable.**
+
+`audiences/outreach-list.json` states the list is ~2,000 people — ~750 firms at
+2–3 contacts — and clears Meta's 1,000 floor *"only with both countries and all
+three verticals combined. A single-vertical slice will under-deliver."* Splitting
+it into a DK ad set and an LT ad set is exactly that slice.
+
+So the top-priority audience gets **one** ad set on the English page. That is a
+real cost: the ICP brief calls Danish and Lithuanian copy *"the most defensible
+thing on the board"*, and this is the one audience that cannot use it.
+
+The alternative, if under-delivery is acceptable in exchange for native-language
+landing pages, is two ad sets at `/da` and `/lt` with `utm_campaign` of
+`dk-outreach-list` and `lt-outreach-list`. **That is a founder decision, not a
+default** — nobody has made it, and this file is not making it either.
+
+The two pixel audiences have no such problem: they are built from page traffic,
+which already arrives language-sorted by which locale route it landed on.
+
+(The 1,000 figure is this repo's own assertion in `outreach-list.json`. Not
+re-checked against Meta's current documented minimum — **unverified**.)
+
 ## ✅ What the page already gives Meta — nothing to rebuild
 
 **Verified 2026-09-16** by running `npm run verify:consent` in `campaign-site`:
@@ -146,6 +197,50 @@ redeploy. With it empty the pixel is completely inert — deliberate, for EU con
 reasons. See `campaign-site/.env.example` §5.
 
 ---
+
+## The claims seam — fixed 2026-09-17
+
+The ad copy passed the claims gate. **The page behind the click had never been
+scanned**, and to a reader — or a regulator — the two are one unit.
+
+### The gate was catching the wrong phrasings
+
+Probed with nine strings. Five passed that should not have, including **both
+figures the landing page actually renders**:
+
+| Probe | Was | Now |
+|---|---|---|
+| `430 USD saved per month, for each person` | PASS | BLOCK · `money_saved` |
+| `12x time saved, against what the firm pays` | PASS | BLOCK · `roi_multiple` |
+| `Worth 4,300 USD a month to a ten person firm` | PASS | BLOCK · `money_saved` |
+| `Pays for itself twelve times over` | PASS | BLOCK · `roi_multiple` |
+| `Cuts your email time in half` | PASS | BLOCK · `hours_saved` |
+| `Saves 10 hours a month` | BLOCK | BLOCK |
+| `89 USD per month for the whole firm` | PASS | **PASS** — a price is a fact, not a claim |
+
+Word order was the whole defect: `saves?\s+\d` needs save-then-digits, and the
+page writes digits-then-saved. The gate blocked the phrasings nobody writes and
+passed the two a buyer is actually shown. `money_saved` and `roi_multiple` are now
+entries in `claims/evidence.json`, both UNVERIFIED.
+
+### The page is allowed to say it. An ad is not.
+
+`python -m engine.cli check --landing ../campaign-site/src/content` scans the
+landing copy. Its findings are **advisory and do not fail the run**, deliberately:
+the page states its modelled figure with *"These are a model, not a measurement"*
+and *"Never yet checked against a real customer"* in the same eyeline. An ad
+carries no disclosure, so the same figure lifted into one is the unbacked public
+promise an investor warned about.
+
+Current result: `en.ts`, `da.ts`, `lt.ts` all report the `430 USD saved` claim.
+Creative: both arms PASS.
+
+### One thing no static scan can see
+
+The return multiple is **computed at runtime** from the modelled saving, a
+ten-person firm and the active tier price. It never appears as a literal in any
+content file, so `--landing` cannot report it and never will. It is on the page
+regardless. Treat `roi_multiple` as live whether or not a scan mentions it.
 
 ## Still founder-only, unchanged
 
@@ -183,13 +278,20 @@ Four. The first three are fixed in this change; the fourth is flagged, not settl
    pricing-viewer audience was ever here, so the event was firing into nothing.
    **Added** as `audiences/pricing-viewers.json`.
 
-4. **Three repos state three different prices.** Not settled here — it is a
-   founder decision, and an ad must not disagree with the page it lands on.
-   - `ad-engine/docs/ICP-BRIEF.md` — $49/seat design partner, $99/seat standard
-   - `campaign-site/BLOCKED.md` — "89 USD per seat per month plus 500 USD setup", recorded as a decision of 2026-09-06
-   - the product repo's `CLAUDE.md` — Individual $20/mo, Teams $44/mo
+4. **Price — OUT OF SCOPE. Do not reconcile it.** The founder is actively
+   working out the right number as of 2026-09-17. Three repos currently state
+   three different prices; that is known, and it is his call, not a drift to be
+   tidied up by whoever reads this next.
 
-   The landing page renders one of these. Settle it before spend starts.
+   Two consequences to be aware of rather than act on:
+   - The landing page's return multiple is computed from the active tier price
+     (`campaign-site/src/components/Numbers.tsx:98`), so **the multiple moves when
+     the price moves**. Nothing to do; just do not treat a figure read off the
+     page today as stable.
+   - An ad and its landing page must not state different prices. Since no
+     creative states a price at all, nothing is currently exposed — and the gate
+     deliberately still allows a bare price (`test_a_bare_price_is_not_a_claim`)
+     so that stays true when one is added.
 
 ---
 
@@ -198,13 +300,16 @@ Four. The first three are fixed in this change; the fourth is flagged, not settl
 Nothing below can be skipped by doing a later step first.
 
 1. Remove the `teams` URL-forward · add the domain in Vercel · `CNAME`. *(founder, ~10 min + DNS)*
-2. Flip `SITE_ORIGIN` in `campaign-site/src/LocalePage.tsx:26` · redeploy.
+2. Set `VITE_SITE_ORIGIN=https://teams.doviloop.dev` in Vercel · redeploy. No
+   code change — it was a literal until 2026-09-17 and is now a variable.
 3. Create the pixel · set `VITE_META_PIXEL_ID` in Vercel · redeploy. *(founder)*
 4. Verify `doviloop.dev` in Business Manager. *(founder)*
 5. Let the pixel collect. `site-retargeting` and `pricing-viewers` have nobody in
    them until it does, and both need a head start on the ads.
-6. Settle the price disagreement (misalignment 4).
-7. Native proofread of `da` and `lt` creative — every non-English field in
+6. Native proofread of `da` and `lt` creative — every non-English field in
    `creative/*.json` still reads `NEEDS_NATIVE_PROOFREAD`, and the same caveat is
    open on the landing copy (`campaign-site/BLOCKED.md` §6).
-8. `python -m engine.cli check` must pass. Then ads.
+7. `python -m engine.cli check --landing ../campaign-site/src/content` must pass
+   on the creative. Then ads.
+
+Price is deliberately absent from this list. See misalignment 4.
