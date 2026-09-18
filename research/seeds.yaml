@@ -1,0 +1,145 @@
+# research/seeds.yaml - the hand-maintained half of discovery.
+#
+# Read by engine/discover.py. It is the whole search plan: who the Ad Library
+# is asked about, by page id, and which keyword searches run, in which
+# countries. Every entry below is a call against a budget of about 200 an
+# hour per token (the figure every guide reports; Meta's reference names the
+# error, code 613, and not the number), so this file is where the bill is
+# decided. Ten pages and six queries at two result pages each is under
+# twenty calls a run.
+#
+# Everything here is edited by hand and committed. Git history is the record
+# of what the engine was told to watch and when.
+#
+# The blank own: block at the bottom is read by measure and feedback only.
+#
+# --------------------------------------------------------------------------
+# countries - the default ad_reached_countries.
+#
+# The Ad Library only returns a commercial ad if it reached an EU country, so
+# these two are the whole basis of the plan: for DK and LT, ad_type=ALL
+# returns every commercial ad. ISO-2 codes, upper case. A page or a query
+# below may carry its own list instead; nothing else falls back to this one.
+# --------------------------------------------------------------------------
+countries: [DK, LT]
+
+# --------------------------------------------------------------------------
+# pages - who we watch, by PAGE ID.
+#
+#   id          a short slug; unique, and what a skip or an error names
+#   name        the page name that lands in the candidate record as its
+#               channel, until the API reports one
+#   page_id     the numeric id of the Facebook page, quoted so YAML keeps it
+#               a string. It is NOT the page name: a keyword search matches
+#               creative TEXT, and a company's own name is rarely in its copy
+#               (searching "Fyxer" returned 2,642 ads and none of Fyxer's).
+#               Read it out of the Ad Library UI - open the page's ads and
+#               the id is the view_all_page_id in the URL - or take the
+#               page_id an MCP probe returns. Blank is refused at load, not
+#               skipped: a page seeded without an id is a page nobody is
+#               watching, and a skip line nobody will act on is noise.
+#   origin      competitor | icp-adjacent - nothing else parses
+#   countries   optional override of the default list. A US or UK competitor
+#               that never reaches DK or LT is invisible under the default;
+#               give it the countries it does run in, and the record says
+#               which countries it reached.
+#
+# Ads returned by a page search carry that page's origin, and a page's own
+# ads are its baseline: variants and the outlier ratio are counted per
+# page_id over the run's results, so a page with several ads in the archive
+# is worth more than one with a single ad.
+# --------------------------------------------------------------------------
+pages:
+  # Seen live in this session's probe: `regnskab`, DK, active - 509 ads, and
+  # these two Danish accounting services in the top five. Both are what our
+  # buyer already sees between their own posts, and neither sells against us.
+  - id: balance-dk
+    name: Balance - Your AI Powered Accountants
+    page_id: "1007614045762121"
+    origin: icp-adjacent
+    countries: [DK]
+
+  - id: gosimple
+    name: GoSimple
+    page_id: "1173334875852946"
+    origin: icp-adjacent
+    countries: [DK]
+
+  # The two competitors reel-engine watches on YouTube, not yet seeded here.
+  # A keyword search for either name (GB, DE, NL, DK, SE) returned nothing of
+  # theirs, so the page_id has to be read out of the Ad Library UI by hand -
+  # and check, before filling it in, that the page runs ads in SOME EU country
+  # at all: a commercial ad that reached no EU country is not in the archive,
+  # and a page that returns nothing costs a call every week for nothing. When
+  # it is filled in, give it the countries it actually runs in.
+  #
+  # - id: fyxer
+  #   name: Fyxer
+  #   origin: competitor
+  #   page_id:
+  #   countries: [GB]
+  #
+  # - id: jace-ai
+  #   name: Jace AI
+  #   origin: competitor
+  #   page_id:
+  #   countries: [GB]
+
+# --------------------------------------------------------------------------
+# queries - keyword searches, for ads from pages you have not seeded.
+#
+# A bare string is icp-adjacent and runs in the default countries, which is
+# what a topic search almost always is; a competitor is reached by page id
+# above, not by searching its name. A mapping can narrow it:
+#
+#   query       the search text, up to 100 characters; matched unordered
+#               against the creative text (search_type KEYWORD_UNORDERED)
+#   origin      competitor | icp-adjacent; default icp-adjacent
+#   countries   the ad_reached_countries for this search; default the list
+#               at the top
+#   languages   optional, ISO-2 lower case, so a Danish word is not matched
+#               inside a Swedish ad
+#
+# Each query is one call per result page. Keep the list short and in the
+# market's own words: a broad query returns a broad page mix and a weaker
+# per-page baseline.
+# --------------------------------------------------------------------------
+queries:
+  - query: regnskab
+    countries: [DK]
+    languages: [da]
+  - query: bogholder
+    countries: [DK]
+    languages: [da]
+  - query: buhalterine apskaita
+    countries: [LT]
+    languages: [lt]
+  - query: buhalteris
+    countries: [LT]
+    languages: [lt]
+  # The category in English, in both markets: what an AI email assistant
+  # says about itself to a Danish or Lithuanian buyer.
+  - query: ai email assistant
+    countries: [DK, LT]
+
+# --------------------------------------------------------------------------
+# own - OUR page and OUR ad account. Read by engine/measure.py and
+# engine/feedback.py; engine/discover.py loads it and ignores it.
+#
+# Measure reads back how our own launched ads performed, and it has to be
+# told which account is ours. It will not guess: a wrong id here measures
+# somebody else's ads and writes their numbers into our feedback loop, which
+# is worse than not measuring at all.
+#
+#   page_id        the numeric id of OUR Facebook page, quoted
+#   page_name      the page name, as the record's channel
+#   ad_account_id  our ad account id as Ads Manager shows it, act_<digits>
+#
+# Leave them blank and `python -m engine.measure` refuses by name rather than
+# spending a call on a guess - the same posture as a blank page_id under
+# pages above.
+# --------------------------------------------------------------------------
+own:
+  page_id:
+  page_name:
+  ad_account_id:
