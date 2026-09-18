@@ -53,7 +53,7 @@ written down is `campaign-site/src/lib/offer.ts`. The costing behind them is in
 |---|---|---|
 | Price | **$149/mo**, whole firm | **$199/mo**, whole firm |
 | Mailboxes covered | up to 10 | up to 20 |
-| Drafts per month, pooled | 4,000 | 8,000 |
+| Drafts per month, pooled | 5,000 | 10,000 |
 | Setup | $500, waived for the first 5 firms | $500, waived for the first 5 firms |
 
 Flat, not per seat: the bill does not move when the firm hires. At 20 people that
