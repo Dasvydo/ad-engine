@@ -368,11 +368,30 @@ def test_a_negative_budget_is_refused():
 
 
 def test_the_shipped_plan_stays_far_inside_one_hour():
-    """The weekly plan, priced: two pages in one call plus five queries."""
-    planned = discover.plan(discover.load_seeds())
-    assert planned["page_calls"] == 1
-    assert planned["query_calls"] == 5
-    assert planned["max_calls"] == 12
+    """The property is the HEADROOM, not today's page count.
+
+    This asserted page_calls == 1 and max_calls == 12, which was true of a
+    seed file carrying two pages and went red the day eleven real page ids
+    were added - a test failing because the work went well. What the budget
+    rule actually says (docs/COST.md) is that one sweep stays far enough
+    inside the hourly allowance that a same-hour re-run still fits, so that
+    is what is pinned here. The arithmetic is re-derived rather than
+    hardcoded, so adding a page moves the number and never the verdict.
+    """
+    seeds = discover.load_seeds()
+    planned = discover.plan(seeds)
+
+    pages = len(seeds.pages)
+    expected_page_calls = -(-pages // discover.MAX_PAGE_IDS_PER_CALL)  # ceil
+    assert planned["page_calls"] == expected_page_calls
+    assert planned["query_calls"] == len(seeds.queries)
+    assert planned["max_calls"] == (
+        (expected_page_calls + len(seeds.queries)) * discover.DEFAULT_MAX_PAGES
+    )
+
+    # A sweep and a same-hour re-run together stay under a fifth of the
+    # allowance. Two sweeps at a tenth each is the rule; the margin is what
+    # a hand-run --dry-run and a retry live in.
     assert planned["max_calls"] < discover.HOURLY_BUDGET_CALLS / 10
 
 
@@ -1148,14 +1167,40 @@ def test_the_shipped_seeds_file_carries_the_pages_seen_live(name, page_id):
     assert match[0].countries == ("DK",)
 
 
-def test_the_shipped_competitors_are_commented_out_until_their_page_ids_are_known():
-    """Fyxer and Jace AI: a keyword search for the name returned nothing of
-    theirs, so the id must come from the Ad Library UI, and they may run in
-    no EU country at all. Recorded in the file, not seeded blind."""
+def test_no_page_is_seeded_without_a_real_id():
+    """The rule is "never seed a page blind", not "never seed a competitor".
+
+    This asserted there were NO competitor pages at all, which was a fact
+    about the day it was written - no competitor's page id was known yet -
+    dressed up as a rule. It went red when a live search turned one up
+    (Echo You, DK, billing in DKK), which is the test telling us off for
+    finding what the engine exists to find.
+
+    What must stay true is that every page in the file carries an id
+    somebody actually read off the Ad Library, because a blank or invented
+    id costs a call every week and returns nothing.
+    """
+    for page in discover.load_seeds().pages:
+        assert page.page_id, f"{page.id} is seeded with no page_id"
+        assert page.page_id.isdigit(), (
+            f"{page.id} has page_id {page.page_id!r}; a page id is digits, "
+            f"and a name in that field is the mistake this refuses"
+        )
+        assert page.origin in discover.ORIGINS
+        assert page.countries, f"{page.id} names no country to search in"
+
+
+def test_fyxer_and_jace_stay_commented_out_until_somebody_reads_their_ids():
+    """The two reel-engine watches on YouTube. A keyword search for either
+    name across five countries returned 2,642 ads and none of theirs, so the
+    id has to come from the Ad Library UI - and they may run in no EU country
+    at all, in which case the archive does not hold them. Recorded in the
+    file rather than seeded blind."""
     text = discover.SEEDS_PATH.read_text(encoding="utf-8")
     assert "# - id: fyxer" in text and "# - id: jace-ai" in text
     assert "#   page_id:\n" in text
-    assert not [p for p in discover.load_seeds().pages if p.origin == "competitor"]
+    seeded = {p.id for p in discover.load_seeds().pages}
+    assert "fyxer" not in seeded and "jace-ai" not in seeded
 
 
 def test_the_shipped_queries_are_the_markets_own_words():

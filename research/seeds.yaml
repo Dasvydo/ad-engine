@@ -49,10 +49,28 @@ countries: [DK, LT]
 # page_id over the run's results, so a page with several ads in the archive
 # is worth more than one with a single ad.
 # --------------------------------------------------------------------------
+# EVERY page_id below was read off a live Ad Library response on 2026-09-18,
+# not guessed. The searches that found them are the `queries` block below,
+# run against DK and LT: `regnskab` (509 active ads), `bogforing
+# regnskabsprogram` (18), `buhalterine apskaita` (34), and `AI email
+# assistant inbox` across DK, LT, SE and NL (9). A page here is a page that
+# was actually running ads in that market on that day.
 pages:
-  # Seen live in this session's probe: `regnskab`, DK, active - 509 ads, and
-  # these two Danish accounting services in the top five. Both are what our
-  # buyer already sees between their own posts, and neither sells against us.
+  # -- competitor -----------------------------------------------------------
+  # The only thing found in these markets that sells what we sell. Its own
+  # link title is "AI Email Assistant, Calendar Management Tool with Unified
+  # Inbox" and it bills in DKK, so it is running against a Danish buyer
+  # rather than merely reaching one.
+  - id: echo-you
+    name: Echo You
+    page_id: "1068016506404036"
+    origin: competitor
+    countries: [DK]
+
+  # -- icp-adjacent, Denmark ------------------------------------------------
+  # What our buyer sees between their own posts. None of these sells against
+  # us; all of them are teaching the same market what "AI" plus "regnskab"
+  # is supposed to sound like, which is the vocabulary our copy competes in.
   - id: balance-dk
     name: Balance - Your AI Powered Accountants
     page_id: "1007614045762121"
@@ -65,13 +83,95 @@ pages:
     origin: icp-adjacent
     countries: [DK]
 
-  # The two competitors reel-engine watches on YouTube, not yet seeded here.
-  # A keyword search for either name (GB, DE, NL, DK, SE) returned nothing of
-  # theirs, so the page_id has to be read out of the Ad Library UI by hand -
-  # and check, before filling it in, that the page runs ads in SOME EU country
-  # at all: a commercial ad that reached no EU country is not in the archive,
-  # and a page that returns nothing costs a call every week for nothing. When
-  # it is filled in, give it the countries it actually runs in.
+  # Runs the same creative from TWO pages - "Crator - AI Regnskab" and
+  # "crator_app" (1240699365794290), six ads between them on one day, every
+  # one carrying the identical link title. Only the first is seeded, on
+  # purpose: variants and the outlier ratio are counted per page_id, so
+  # seeding both would split one brand's baseline in half and make each page
+  # look like it had fewer variants than the brand actually runs. If the
+  # second page ever runs DIFFERENT creative, seed it then.
+  - id: crator
+    name: Crator - AI Regnskab
+    page_id: "1224869504046057"
+    origin: icp-adjacent
+    countries: [DK]
+
+  - id: numina
+    name: Numina - Regnskab
+    page_id: "587476204450288"
+    origin: icp-adjacent
+    countries: [DK]
+
+  # The incumbent. Runs many near-identical variants of one line at once
+  # ("Overblik uden overtid" four times over), which is the `variants` signal
+  # working exactly as intended: a page telling you which hook it is scaling.
+  - id: dinero
+    name: Dinero - Regnskabsprogram
+    page_id: "486005624788593"
+    origin: icp-adjacent
+    countries: [DK]
+
+  - id: revisal
+    name: Revisal
+    page_id: "1059937640534374"
+    origin: icp-adjacent
+    countries: [DK]
+
+  # -- icp-adjacent, Lithuania ----------------------------------------------
+  # MEASURED, and the reason longevity is this engine's primary signal:
+  # FINUM's ads carry ad_creation_time in March 2024 and were still being
+  # delivered on 2026-09-18. Two and a half years is not a campaign, it is a
+  # verdict - somebody has kept paying for that creative for thirty months.
+  # Whatever `days_running` says about this page is the top of the band.
+  - id: finum
+    name: FINUM
+    page_id: "100309852969689"
+    origin: icp-adjacent
+    countries: [LT]
+
+  # Positions on exactly our argument, in a market we sell to: "Iki 55%
+  # maziau rankinio darbo" - up to 55% less manual work. Worth watching for
+  # the shape of the claim, and worth remembering that we may not make it:
+  # a percentage in our copy needs an attestation and we have none.
+  - id: labbis
+    name: Labbis
+    page_id: "625943337910042"
+    origin: icp-adjacent
+    countries: [LT]
+
+  - id: rivile
+    name: UAB Rivile
+    page_id: "2363739230318095"
+    origin: icp-adjacent
+    countries: [LT]
+
+  - id: keiri
+    name: Keiri
+    page_id: "1101671566369613"
+    origin: icp-adjacent
+    countries: [LT]
+
+  - id: pelningi-sprendimai
+    name: Pelningi Sprendimai
+    page_id: "1110333685679534"
+    origin: icp-adjacent
+    countries: [LT]
+
+  - id: germalita
+    name: Germalita buhalterine apskaita
+    page_id: "425041560693456"
+    origin: icp-adjacent
+    countries: [LT]
+
+  # The two competitors reel-engine watches on YouTube are still NOT seeded,
+  # and the reason is worth keeping rather than retrying: a keyword search
+  # for either name across GB, DE, NL, DK and SE returned 2,642 ads and none
+  # of theirs. That is the archive working correctly - keyword search matches
+  # creative TEXT and a company's own name is rarely in its own copy - so the
+  # page_id has to be read out of the Ad Library UI by hand. Before filling
+  # one in, check the page runs ads in SOME EU country: a commercial ad that
+  # reached no EU country is not in the archive at all, and a page that
+  # returns nothing costs a call every week for nothing.
   #
   # - id: fyxer
   #   name: Fyxer
