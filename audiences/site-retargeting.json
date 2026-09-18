@@ -3,8 +3,9 @@
   "type": "pixel_retargeting",
   "priority": 2,
   "rationale": "Cheapest useful Meta spend: people who already reached the campaign landing page. Works regardless of how small the prospecting audience is, because intent has already been shown.",
-  "source": "Meta pixel on the campaign landing page (campaign-site), PageView event",
+  "source": "Meta pixel id 1584074833462346, shared. Live on campaign-site-azure.vercel.app.",
   "window_days": 90,
-  "blocked_on": "The pixel is BUILT and consent-gated on the campaign landing page and its gate is tested (npm run verify:consent, 23/23 PASS, 2026-09-16). It is inert until VITE_META_PIXEL_ID is set in the campaign-site Vercel project and the page is redeployed. Nothing collects until then, and this audience needs a head start on the ads.",
-  "note": "Covers campaign-page traffic only. No pixel is on www.doviloop.dev, so product-site visitors are not in this pool. campaign-site/.env.example section 5 says the same ID should go on both."
+  "blocked_on": "NOT the pixel. Verified 2026-09-18 by fetching the deployed bundle: VITE_META_PIXEL_ID=1584074833462346 is baked into /assets/index-*.js and the fbevents loader is present. campaign-build-status-9j9194 recorded it live since 2026-09-12. Blocked on TIME - the pool is days deep, not empty-because-broken. An audience still filling looks exactly like an audience nothing is wired to.",
+  "note": "Covers campaign-page traffic only. No pixel is on www.doviloop.dev, so product-site visitors are not in this pool. campaign-site/.env.example section 5 says the same ID should go on both.",
+  "_correction": "This file said 'VITE_META_PIXEL_ID is not set' from 2026-09-16 to 2026-09-18. That was wrong and it overwrote a more accurate version on claude/campaign-build-status-9j9194, which already carried the pixel id and install date. Read from .env.example (a template) and BLOCKED.md (dated), never from the deployed artifact. Injection is still consent-gated at runtime."
 }

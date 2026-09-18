@@ -5,6 +5,6 @@
   "rationale": "Highest-intent pool available without a customer list: people who read the pricing band. The landing page fires ViewContent with content_name 'pricing', dwell-gated so a scroll-past does not count.",
   "source": "Meta pixel, ViewContent event where content_name = 'pricing' (campaign-site/src/LocalePage.tsx:127)",
   "window_days": 90,
-  "blocked_on": "Same as site-retargeting: VITE_META_PIXEL_ID is not set, so the pixel is inert and the event reaches nobody.",
+  "blocked_on": "NOT the pixel - see site-retargeting.json. Blocked on time, and on confirming the dwell-gated ViewContent actually fires in production with content_name 'pricing'. Never observed live; the code path is campaign-site src/LocalePage.tsx:127.",
   "note": "Added 2026-09-16. campaign-site/src/LocalePage.tsx:129 cited 'ad-engine's audience 3 (pricing viewers, 90 days)' as the reason its ViewContent event exists, but no such audience was ever in this repo - audience 3 is broad-interest. The event was firing into nothing. See docs/FUNNEL-HANDOFF.md, misalignment 3."
 }
