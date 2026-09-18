@@ -212,12 +212,17 @@ than anything the reel loop can read for a competitor.
 ## 3. The mapping, stage by stage
 
 For each stage: what carries over verbatim, what changes, and what is decided
-here rather than left to review. Module names are proposed; contracts are in
-section 4.
+here rather than left to review. **The module names below are the ones that
+were built**, updated from the `ads_`-prefixed names this document first
+proposed - see the decisions block after section 8. The contracts sketched in
+section 4 were settled in `docs/CONTRACTS.md`, which is the authority on what
+each module reads and writes; section 4 is kept as the record of what was asked
+for.
 
-### 3.1 Seeds: `research/ads-seeds.yaml`
+### 3.1 Seeds: `research/seeds.yaml`
 
-Hand-edited and committed, like `research/seeds.yaml`. Four blocks:
+Hand-edited and committed, like `reel-engine`'s own `research/seeds.yaml`.
+Four blocks:
 
 ```
 pages:      who we watch, by Facebook page id. origin competitor | icp-adjacent.
@@ -240,7 +245,7 @@ Carried over: the loader's whole posture - validate everything at load, before
 a call is spent; refuse an unknown origin; refuse a duplicate; name the fix in
 every message.
 
-### 3.2 Discover: `engine/ads_discover.py`
+### 3.2 Discover: `engine/discover.py`
 
 Carried over verbatim in shape: the `Quota` class (budget 200, charged before
 the socket, `QuotaExceededError` carrying the numbers), the single `_http`
@@ -268,7 +273,7 @@ socket-explosion test, re-pointed: run the seeds-only path, then run a
 discovery whose transport stub returns snapshot URLs, and assert no request was
 ever made to `facebook.com/ads/library/?id=`.
 
-### 3.3 Analyse: `engine/ads_analyse.py`
+### 3.3 Analyse: `engine/analyse.py`
 
 Two paths, and the split is the design decision.
 
@@ -306,9 +311,10 @@ Carried over: `_first_json_object`, the refusal handling, `SkippedCandidate`
 versus `AnalysisError`, provenance stamped under `analysis` after the model's
 own keys, validation before return.
 
-### 3.4 Corpus: `engine/ads_corpus.py`
+### 3.4 Corpus: `engine/corpus.py`
 
-A copy of `engine/corpus.py` with a different `REQUIRED_NESTED`, not an import
+A copy of `reel-engine/engine/corpus.py` with a different `REQUIRED_NESTED`,
+not an import
 of it: the reel corpus requires `transcript`, `pacing` and timed `structure`,
 and a text ad has none of those. Everything else is identical - one file per
 record at `research/corpus/meta-ad-<id>.json`, sorted keys, trailing newline,
@@ -316,7 +322,7 @@ strict top level, permissive `analysis`, duplicate ids refused, `ORIGINS` =
 `competitor | icp-adjacent | own`. The two repositories keep their own corpus;
 nothing reads across.
 
-### 3.5 Learn: `engine/ads_learn.py`
+### 3.5 Learn: `engine/learn.py`
 
 Zero model calls, AST-proved, `MIN_SUPPORT = 2`, ordered by `(kind, device)`,
 ids from that order, `generated_at` from the corpus. The kinds change:
@@ -339,7 +345,7 @@ reel one carries `median_views`, and `n` as before. The `ctr` kind is the
 and a null is never a zero. The band edges are a first guess and are the one
 thing here to revisit after the first live corpus.
 
-### 3.6 Concepts: `engine/ads_concepts.py`
+### 3.6 Concepts: `engine/concepts.py`
 
 One call, N concepts, every concept citing a pattern id that exists and a
 segment id from the backlog. Two additions to the record: `placement`
@@ -351,11 +357,12 @@ is being asked for, and `offer` (one of the learned offer devices, or `none`).
 uses. `campaign-site` documents that the campaign repositories are cloned as
 siblings and reach across by relative path, and this repository's own README
 already reads `../outreach-engine/queue/acc-dk.csv`. So the default is to read
-`../reel-engine/queue/backlog.md` with a copy of `engine/backlog.py`'s parser,
+`../reel-engine/queue/backlog.md` with a copy of that repository's
+`engine/backlog.py` parser,
 and to refuse by name if the sibling is absent. Decision 4 in section 8 is
 whether to copy the table instead.
 
-### 3.7 Score: `engine/ads_score.py`
+### 3.7 Score: `engine/score.py`
 
 The same five dimensions and the same weights. `pattern_evidence` reads `n`
 against `EVIDENCE_FULL_N = 3` and `median_days_running` on a log scale with a
@@ -366,7 +373,7 @@ editorial call scores the batch. `_spread` picks winners across segments first
 and then across placements, so three winners are three ads and not three
 videos for one trade.
 
-### 3.8 Write and gate: `engine/ads_write.py`, `engine/gate.py`
+### 3.8 Write and gate: `engine/write.py`, `engine/gate.py`
 
 The writer produces **two files from one concept**:
 
@@ -406,7 +413,8 @@ Rule 2 is structural and free; the other three are the one editorial call.
 
 ### 3.9 Render: `reel-engine`, unchanged
 
-`python -m engine.cli <content.json> --out <ad>.mp4` for the video and the
+`reel-engine`'s own `python -m engine.cli <content.json> --out <ad>.mp4` for
+the video and the
 still-frame path for a static. `reel-c`, `reel-s` and `reel-d` are 9:16 for
 Reels and Stories placements; `reel-b` is 4:5 for feed. The ad's workflow
 checks out the sibling repository and calls its CLI; `ad-engine` holds no
@@ -432,7 +440,8 @@ the issue body shows the copy and, for a video, the still `reel-engine` shot.
 
 **Phase 1 is a human.** The second `go` moves the job to `queue/built/` and
 the issue says: upload this MP4 and this copy in Ads Manager, then paste the
-ad id back with `python -m engine.launch --segment <id> --ad <ad id>`. That
+ad id back with `python -m engine.approval launch --segment <id> --ad <ad
+id>`. That
 pins the id into the job under `ads`, the twin of the reel job's `videos` map
 - the guess is made once, by a human, and every later measurement is an exact
 lookup.
@@ -442,7 +451,7 @@ the creative, create the ad **paused**, and let a human flip it on. That needs
 `ads_management` on our own account and is the one step in this whole design
 that can spend money, so it stays behind a human tap and is built last.
 
-### 3.12 Measure: `engine/ads_measure.py`
+### 3.12 Measure: `engine/measure.py`
 
 Our own ads, read from our own ad account through the Marketing API insights
 edge, by pinned ad id. What comes back is real: `impressions`, `reach`,
@@ -451,14 +460,18 @@ edge, by pinned ad id. What comes back is real: `impressions`, `reach`,
 `cost_per_action_type`. Hook rate (3-second plays over impressions) and hold
 rate (thruplays over 3-second plays) are derived in the module and say so.
 
-Same shape as `engine/measure.py`: a run whose jobs are all pinned is one call
-per fifty ids; nothing published costs nothing; the token is read through a
-copy of `engine/oauth.py` with its day-40 warning and day-60 refusal. Whether a
+Same shape as `reel-engine/engine/measure.py`: nothing launched costs nothing,
+and the token is read through a copy of that repository's `engine/oauth.py`
+with its day-40 warning and day-60 refusal. What was built reads
+`/{ad_id}/insights` **one pinned ad at a time** rather than fifty at a time:
+the batched account-level form needs `own.ad_account_id` and a second URL shape
+nobody has verified, and one call a week per launched ad is not a surface worth
+guessing at. Whether a
 System User token from Business Manager (which does not expire) is acceptable
 here is the first thing to check when the account is wired - it would delete
 the calendar entry.
 
-### 3.13 Feedback: `engine/ads_feedback.py`
+### 3.13 Feedback: `engine/feedback.py`
 
 Zero model calls. We wrote the copy, so the hook, structure, offer and CTA are
 read off the job file verbatim; the CTR and hook rate come from the
@@ -584,8 +597,9 @@ In order, with what each one unblocks.
 
 1. **Identity verification and a token.** `facebook.com/ID` with a government
    id (one to three business days), a Meta developer app with the Ad Library
-   API product, a token. Secrets: `META_AD_LIBRARY_TOKEN`; variable:
-   `META_AD_LIBRARY_TOKEN_ISSUED` as `YYYY-MM-DD`, the same pair
+   API product, a token. Secret: `META_ACCESS_TOKEN`; variable:
+   `META_TOKEN_ISSUED` as `YYYY-MM-DD` (one pair for both Meta APIs - see the
+   decisions block after section 8), the same shape
    `engine/oauth.py` keeps for Instagram, for the same reason - the date must
    be visible beside the token or the countdown cannot be kept honest.
    *Unblocks discovery.*
@@ -615,17 +629,17 @@ In order, with what each one unblocks.
 ## 7. Phasing
 
 Each phase is independently useful and stops cleanly, in the spirit of
-`docs/STRATEGY.md`'s "stop at any point". Costs are model calls per weekly run
+`reel-engine/docs/STRATEGY.md`'s "stop at any point". Costs are model calls per weekly run
 and are ceilings.
 
 | Phase | Builds | Done when | Model calls |
 |---|---|---|---|
-| **A. Discover** | `research/ads-seeds.yaml`, `engine/ads_discover.py` with `Quota`, the offline test suite with a stub transport and the no-snapshot socket test, `--dry-run` | A dry run prints the plan and the call count; the first live call with a real token prints the field set section 2.2 could not confirm. | 0 |
-| **B. Corpus and learn** | `engine/ads_corpus.py`, `engine/ads_analyse.py` (text path, batched), `engine/ads_learn.py` with the AST test, `research.yml` weekly | `research/patterns.json` is committed with at least one pattern supported by 2+ ads, and an unchanged corpus rewrites identical bytes. | ~1 |
-| **C. Concepts and score** | `engine/ads_concepts.py`, `engine/ads_score.py`, `engine/ads_fanout.py` writing `research/selection.json` | Three selected concepts, each citing a pattern that traces to named ads with days-running under it, with a scorecard for all twelve. | ~3 |
-| **D. Write, gate, approve** | `engine/ads_write.py`, the ported claims policy in `engine/gate.py` and the migrated `claims/evidence.json`, `engine/approval.py` copied, `propose.yml` opening one issue per concept with `reel-engine`'s still | A concept becomes gated copy in `queue/proposed/` plus a content JSON `reel-engine` builds without error, and a `go` moves it. | up to 6 per concept |
-| **E. Build and manual launch** | a `build.yml` that checks out `../reel-engine` and renders; `engine/launch.py --ad` pinning the id | An MP4 and a still for one approved concept, and a job in `queue/launched/` carrying an ad id a human pasted. | 0 |
-| **F. Measure and feed back** | `engine/ads_measure.py`, the copied `oauth.py`, `engine/ads_feedback.py`, `measure.yml` an hour before research | One launched ad has a C6' row and an `own` corpus record with a CTR band, and the next sweep's patterns cite it. | 0 |
+| **A. Discover** | `research/seeds.yaml`, `engine/discover.py` with `Quota`, the offline test suite with a stub transport and the no-snapshot socket test, `--dry-run` | A dry run prints the plan and the call count; the first live call with a real token prints the field set section 2.2 could not confirm. | 0 |
+| **B. Corpus and learn** | `engine/corpus.py`, `engine/analyse.py` (text path, batched), `engine/learn.py` with the AST test, `research.yml` weekly | `research/patterns.json` is committed with at least one pattern supported by 2+ ads, and an unchanged corpus rewrites identical bytes. | ~1 |
+| **C. Concepts and score** | `engine/concepts.py`, `engine/score.py`, `engine/fanout.py` writing `research/selection.json` | Three selected concepts, each citing a pattern that traces to named ads with days-running under it, with a scorecard for all twelve. | ~3 |
+| **D. Write, gate, approve** | `engine/write.py`, the ported claims policy in `engine/gate.py` and the migrated `claims/evidence.json`, `engine/approval.py` copied, `propose.yml` opening one issue per concept with `reel-engine`'s still | A concept becomes gated copy in `queue/proposed/` plus a content JSON `reel-engine` builds without error, and a `go` moves it. | up to 6 per concept |
+| **E. Build and manual launch** | a `build.yml` that checks out `../reel-engine` and renders; `engine.approval launch --ad` pinning the id | An MP4 and a still for one approved concept, and a job in `queue/launched/` carrying an ad id a human pasted. | 0 |
+| **F. Measure and feed back** | `engine/measure.py`, the copied `engine/oauth.py`, `engine/feedback.py`, `measure.yml` an hour before research | One launched ad has a C6' row and an `own` corpus record with a CTR band, and the next sweep's patterns cite it. | 0 |
 | **G. Marketing API launch** | write path: upload, creative, ad created paused | Optional, last, behind a human tap. | 0 |
 
 Phase A through C is the "scrape the best performing ads, structure them" half
@@ -666,6 +680,127 @@ Put to Dovy, with a recommendation each.
    countries widens `icp-adjacent` to "a different market's ads about the same
    category", which is honest as long as the record says which countries it
    reached - and it does.
+
+---
+
+## 8a. Decisions taken 2026-09-18
+
+Section 8 put eight decisions to Dovy. Six of them were taken the same day and
+the loop was built against them, in one pass, by a fan-out of builders working
+from `docs/CONTRACTS.md`. This block is the record of what was chosen and what
+it cost; where a decision differs from the recommendation above, this block
+wins and section 8 is the argument that led here.
+
+**1. Home: this repository.** Decision 1, as recommended. The research half
+lives in `ad-engine`. `reel-engine`'s corpus schema is untouched, its tests
+still assert it has no Meta transport, and the two repositories share nothing
+at run time except the renderer - which `build.yml` reaches by checking the
+sibling out, once, when a video is actually being shot.
+
+**2. The backlog is a copy, kept in sync by a tool.** Decision 4, **against**
+the recommendation. The ICP is one ranked list and `reel-engine` owns it, but
+reading `../reel-engine/queue/backlog.md` at run time would mean the weekly
+research cron needs `REEL_ENGINE_TOKEN` - a second repository's credential -
+to read one markdown table. A free, read-only sweep should not be able to fail
+on a credential it has no other use for. So `queue/backlog.md` is a copy with a
+header saying so, `engine/backlog.py` reads it locally, and
+`tools/sync_backlog.py` rewrites the rows from the sibling when a checkout has
+both: `--check` exits 1 with a diff on drift, and refuses (exit 2) rather than
+guessing when the table or the markers are wrong. The tool runs in `build.yml`,
+which already holds the token, and nowhere else. Two copies drift; a tool that
+says so is the price of a cron that cannot fail on a token.
+
+**3. One claims policy, and it is `reel-engine`'s.** Decision 5, as
+recommended. `engine/gate.py` keeps its five named regexes and its
+`check()`/`check_creative()` surface - the eight tests that were here first
+still pass, unedited - and gains the number policy ported verbatim from
+`reel-engine/reel/build.py`: `CARDINALS`, `MULTIPLIERS`, `NUM_RE`, `spoken()`
+and `evidence_key()`, so a number word ("one", "half", "twice") is a number and
+a hash of field-and-text is what attests it. `claims/evidence.json` now carries
+three sections rather than one: the original `claims` untouched, an
+`attestations` map (empty on purpose - no ad has yet needed a number), and an
+**offers table**:
+
+| Offer | Status | What may be said |
+|---|---|---|
+| `guarantee` | verified | if the drafts are not good enough to send, they do not pay and keep the knowledge base |
+| `design_partner` | verified | design-partner terms for the first firms in |
+| `demo` | verified | a call can be booked |
+| `free_trial` | **UNVERIFIED** | no self-serve trial exists; revenue is switched off in the product |
+
+The offer is checked from that table and not judged, which is rule 2 of the
+editorial rubric turned into a lookup: `engine/concepts.py` will not write a
+concept on an unverified offer, `engine/write.py` refuses one before it builds
+a prompt, and `gate.structural()` refuses a job carrying one - three places,
+one table, no model call. The other three rubric rules are the single editorial
+call.
+
+**4. Text-only analysis by default, batched; media by hand.** Decision 3, as
+recommended, plus the batching rule 1.2/3 argues for. `engine/analyse.py` reads
+up to `BATCH_SIZE = 12` ads in **one** model call, keyed by id, with a per-ad
+`{"refuse": ...}` escape and a batch-level refusal if the reply is short an id
+or truncated - half a batch would be counted as evidence. A candidate with a
+hand-saved file at `research/media/<id>.<suffix>` gets its own call with the
+file attached. **There is no code path that fetches a snapshot and no place to
+add one**: `tests/test_analyse.py` AST-parses the module, forbids every
+transport import, and asserts the source contains neither `snapshot_url` nor
+any `ads/library` string other than the Library URL prefix the record's `url`
+is built from. A default sweep is 2 analysis calls, not 24.
+
+**5. One token pair for both Meta APIs.** Not a section 8 question; it came up
+while wiring. `META_ACCESS_TOKEN` (secret) and `META_TOKEN_ISSUED` (repository
+variable, `YYYY-MM-DD`) are read by `engine/oauth.py` and by nothing else, and
+they serve **both** reads: the Ad Library archive for strangers' ads and the
+Marketing API insights edge for our own. The names this document first proposed
+- `META_AD_LIBRARY_TOKEN` and its `_ISSUED` twin - were dropped: two secrets
+for one token is two things to rotate and two ways for the date to go stale,
+and the second read needs no second credential, only `ads_read` on our own ad
+account granted to the same token's user. The countdown is unchanged: warns
+from day 40 of 60, refuses past 60 before any socket, and `python -m
+engine.oauth --status` exits nonzero inside the band. `docs/SECRETS.md` has the
+minting steps and the rotate-both-in-one-visit rule.
+
+**6. The `ads_` prefix is dropped.** The modules mirror `reel-engine`'s names
+exactly - `discover`, `analyse`, `corpus`, `learn`, `concepts`, `score`,
+`fanout`, `write`, `measure`, `feedback`, `approval`, `oauth`, `backlog`,
+`model`, `gate` - rather than `ads_discover`, `ads_analyse` and the rest.
+There is no reel module in this repository to collide with, so the prefix
+bought nothing and cost the one thing that matters when two repositories are
+read side by side: an operator who knows where a thing lives over there knows
+where it lives here, and a diff between the two is a diff about behaviour
+rather than about names. Section 3 and section 7 above have been updated to
+the real names. The record shapes keep their primed ids (C1', C2', ...) in
+section 4 because those genuinely differ from the reel ones; `docs/CONTRACTS.md`
+carries the versions the modules were actually built against.
+
+### What was NOT decided
+
+- **Decision 6, what the corpus stores**, is still open and still waits on
+  Meta's Ad Library API terms, which nobody has read. The corpus as built
+  stores the creative text verbatim under `analysis.copy`, because a writer
+  quotes it and `research/corpus/` is a private repository - but that is the
+  default, not a ruling, and narrowing it later is a change to
+  `engine/discover.py`'s `candidate()` and one field of the record.
+- **Decision 7, a second AI Studio key**, is still open. It is free and it is
+  the first lever if a Monday that runs both loops ever hits the 20-a-day
+  ceiling. `docs/COST.md` prices the collision.
+- **Decision 2 (longevity primary) and decision 8 (competitor countries)** were
+  taken as recommended and needed no argument: `outlier_ratio` is reach-per-day
+  over the page's own median, the per-page baseline is what stops absolute
+  reach rewarding whoever spends most, and `research/seeds.yaml` gives any page
+  or query its own country list, with the record saying which countries the ad
+  reached.
+- **Phase G, the Marketing API launch path**, is not built and is not started.
+  Launching is a human in Ads Manager pasting an ad id back through
+  `engine.approval launch`, exactly as phase E says.
+
+### What the first live run still has to prove
+
+Nothing here has met a live credential. Every test is offline, every transport
+is injected, `research/corpus/` holds only its `.gitkeep`, and neither
+`research/patterns.json` nor `research/measurements.json` has been written
+once. Section 9 below is unchanged and still correct, and `docs/SECRETS.md`'s
+"before you trust the cron" is the order to check it in.
 
 ---
 

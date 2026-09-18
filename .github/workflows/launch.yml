@@ -1,0 +1,178 @@
+name: launch
+
+# The ad is live in Ads Manager. This pins its id into the job.
+#
+# WHY THIS IS A DISPATCH AND NOT A SECOND `go` TAP. The other two taps are
+# decisions this repository can act on by itself - write the copy, shoot the
+# creative. This one carries a fact only the human who just published the ad
+# has: the Ad ID column in Ads Manager. There is no label that can carry a
+# number, so the second half of the launch is a form with the id in it.
+#
+# Uploading the ad is deliberately manual for now. docs/AD-RESEARCH-SCOPE.md
+# 3.11 has the reasoning: creating an ad through the Marketing API is a WRITE
+# against our own account and is the one step in this whole design that can
+# spend money, so it stays behind a human until everything around it has been
+# proved. Pinning the id is the cheap half, and it is what turns every later
+# measurement into an exact lookup instead of a guess - a wrong pin looks
+# correct forever.
+#
+# WHAT `approval launch` REFUSES, so this workflow does not have to. A job that
+# is still in queue/proposed/ (the creative was never built) and a job already
+# in queue/launched/ (the ids are already pinned) are both refused by name, and
+# so is an ad id that is not all digits. queue/built/ is the only stage a
+# launch can start from, which is the stage discriminator here - the twin of
+# build.yml's `resolve --expect proposed`.
+on:
+  workflow_dispatch:
+    inputs:
+      segment:
+        description: "segment id of the built job, e.g. payroll-bureaus"
+        required: true
+      ad_id:
+        description: "the Ad ID column in Ads Manager; digits only"
+        required: true
+      campaign_id:
+        description: "the campaign id, if you want the job to carry it; digits only"
+        required: false
+        default: ""
+      issue:
+        description: "the approval issue number to close"
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+
+
+jobs:
+  launch:
+    # JOB level, and the SAME group build.yml and reject.yml use, keyed on the
+    # issue this launch names. A `no` tapped while this is running would
+    # otherwise be deleting the job file this one is moving.
+    concurrency:
+      group: ad-${{ inputs.issue }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # No model call, no browser, no API call: an install, one approval call and
+    # a push. docs/COST.md ESTIMATES ~1 minute; 10 is ten times that and 36x
+    # under GitHub's 360-minute default.
+    timeout-minutes: 10
+    steps:
+      # First, so the stamp covers the install - which is nearly all of what
+      # this job spends. See docs/COST.md.
+      - name: Stamp the start time
+        run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      # A workflow_dispatch checks out the ref it was dispatched from, which is
+      # a branch, so `git push` has somewhere to go. tools/push_with_retry.sh
+      # refuses a detached HEAD by name rather than failing with git's own
+      # hint, which is the guard for a checkout that ever changes shape.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pin the ad id and move the job to queue/launched/
+        id: launch
+        env:
+          SEGMENT: ${{ inputs.segment }}
+          AD_ID: ${{ inputs.ad_id }}
+          CAMPAIGN_ID: ${{ inputs.campaign_id }}
+        run: |
+          set -euo pipefail
+          # Required inputs can still arrive empty through the API, and a blank
+          # segment would be a LookupError halfway through rather than a
+          # sentence here.
+          if [ -z "$SEGMENT" ] || [ -z "$AD_ID" ]; then
+            echo "::error::Both segment and ad_id are required. segment names"
+            echo "::error::the job in queue/built/; ad_id is the Ad ID column"
+            echo "::error::in Ads Manager, digits only."
+            exit 1
+          fi
+          # "<ad id>:<campaign id>" with a blank trailing slot when no campaign
+          # id was given: engine/approval.py parses that as a null campaign_id
+          # and writes it as null rather than as an empty string, so the job
+          # never carries a campaign id nobody typed.
+          python -m engine.approval launch \
+            --segment "$SEGMENT" --ad "$AD_ID:$CAMPAIGN_ID"
+
+          git config user.name "doviloop-engine"
+          git config user.email "engine@doviloop.invalid"
+          git add queue
+          git commit -m "launch: $SEGMENT ad $AD_ID"
+          # Pushes, with a rebase-and-retry, so a run that loses a race to the
+          # branch is not thrown away. The script says which day that cost a
+          # completed research sweep.
+          bash tools/push_with_retry.sh
+
+      - name: Close the approval issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ inputs.issue }}
+          SEGMENT: ${{ inputs.segment }}
+          AD_ID: ${{ inputs.ad_id }}
+        run: |
+          set -euo pipefail
+          # The pin is already committed by the step above, so an issue that
+          # cannot be closed costs a tidy-up and never the record itself.
+          if [ -z "$ISSUE" ]; then
+            echo "::notice::No issue number was given, so nothing was closed."
+            echo "::notice::The ad id is pinned and committed either way; close"
+            echo "::notice::the approval issue by hand."
+            exit 0
+          fi
+          {
+            echo "### Launched"
+            echo
+            echo "\`$SEGMENT\` is live: ad \`$AD_ID\` is pinned into"
+            echo "\`queue/launched/$SEGMENT.json\`."
+            echo
+            echo "From here it is read, not approved. The weekly **measure**"
+            echo "run looks this ad id up on the Marketing API insights edge,"
+            echo "writes what it did into \`research/measurements.json\`, and"
+            echo "\`engine.feedback\` turns that into a corpus record with"
+            echo "origin \`own\` - which is the strongest evidence this engine"
+            echo "holds, because it is the only place a real click-through rate"
+            echo "comes from."
+            echo
+            echo "Nothing else has to be tapped."
+          } > "$RUNNER_TEMP/launched.md"
+          python -m engine.approval close --issue "$ISSUE" \
+            --comment-file "$RUNNER_TEMP/launched.md"
+
+      # always(), because a run that dies after the install has still spent the
+      # minutes it spent installing. Plain shell and `date` rather than a
+      # marketplace timing action; two subtractions are not worth a dependency.
+      - name: Report the minutes this job used
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+        run: |
+          # An unstamped job is unmeasured, not free. Reporting 0 would quietly
+          # understate the month.
+          if [ -z "${JOB_STARTED:-}" ]; then
+            {
+              echo "### Actions minutes"
+              echo
+              echo "- \`launch\` never stamped a start time, so its cost is unknown."
+              echo "  The job was cancelled before its first step ran."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          elapsed=$(( $(date +%s) - JOB_STARTED ))
+          {
+            echo "### Actions minutes"
+            echo
+            echo "- \`launch\` took $(( elapsed / 60 ))m $(( elapsed % 60 ))s wall clock; status \`$STATUS\`."
+            # Billing rounds each job up to the whole minute, so the billed
+            # figure is the one to add up, not the wall clock.
+            echo "- Billed as $(( (elapsed + 59) / 60 )) minute(s) of the 2,000/month Linux allowance."
+            echo "- Budget and headroom: \`docs/COST.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"
