@@ -107,7 +107,22 @@ delivery.
 Work top to bottom. Each step's "you'll know it worked when" is there so you
 don't have to guess.
 
-### ☐ 1. Business Manager
+### ☐ 1. Business Manager — still not done, and it gates more than it looks
+
+⚠️ **Read live 2026-09-18: `business_id` is empty. The ad account is personal.**
+That is workable for spending, and it is the reason two later steps have nowhere
+to happen:
+
+- **Domain verification is a Business Manager feature.** Business Settings →
+  Brand Safety → Domains. With no business there is no such screen, so
+  `doviloop.dev` cannot be verified, and without that there is no Aggregated
+  Event Measurement. Step 4 of the funnel contract assumes this exists.
+- **Custom Audience terms** are accepted in Business Settings (step 5 below).
+
+So a card on the personal account buys a campaign that can spend but cannot ever
+verify its own domain. Creating the business first costs about five minutes and
+avoids claiming assets back afterwards.
+
 **business.facebook.com** → create a business.
 
 Use the real legal entity name and address — this is what gets verified later if
