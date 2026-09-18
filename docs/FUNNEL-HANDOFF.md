@@ -69,14 +69,19 @@ a link checker pass it.
 Order matters. Porkbun creates the forwarding record itself, so a hand-written
 CNAME for the same host will collide with it until the forward is gone.
 
-**1 · Delete the URL forward.**
-Porkbun → *Domain Management* → `doviloop.dev` → **URL Forwarding**. Find the row
-for the `teams` subdomain and delete it.
+**1 · Nothing to delete — corrected 2026-09-18.**
+There is no `teams` URL Forward and no `teams` DNS record; the founder checked the
+panel and both read empty. The real cause is a **wildcard**, `*.doviloop.dev` →
+`pixie.porkbun.com`, which catches every subdomain that has no record of its own.
+A hostname nobody ever created 301s exactly like `teams` does.
 
-**2 · Confirm the record actually went.**
-Same domain → **DNS Records**. There should now be no `teams` record at all. If an
-`ALIAS` or `CNAME` pointing at `pixie.porkbun.com` is still listed, delete it by
-hand — the forward's record occasionally outlives the forward.
+**Do not delete the wildcard** — it sends typo'd subdomains to the main site.
+A specific record beats a wildcard, and this domain already demonstrates it:
+`www.doviloop.dev` has its own CNAME to `eaed6a72e4238921.vercel-dns-017.com` and
+reaches Vercel while its neighbours reach the forwarder. Adding `teams` is the
+entire fix. Skip to step 3.
+
+**2 · Void.** See step 1. Nothing to confirm gone, because nothing was there.
 
 Check from a terminal:
 
