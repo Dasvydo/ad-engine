@@ -3,3 +3,10 @@ __pycache__/
 .venv/
 queue/*.csv
 .env
+out/
+research/media/*
+!research/media/README.md
+*.mp4
+*.mov
+*.m4v
+*.webm
