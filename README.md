@@ -91,6 +91,15 @@ commissioning new creative.
   flags). Traffic can arrive and convert to a conversation, but not to a payment.
 - Danish and Lithuanian creative is drafted, **not native-checked**.
 
+## Next: the research loop, for ads
+
+`docs/AD-RESEARCH-SCOPE.md` scopes how `reel-engine`'s discover -> analyse ->
+learn -> concepts -> score -> write -> approve -> measure -> feed-back loop
+re-applies to Meta ads, with the Ad Library API where the YouTube Data API
+sits, longevity and reach where views sit, and our own ad account's CTR
+closing the loop. Nothing in it is built yet; it names what a human has to
+do first and what it could not verify.
+
 ## Why this runs at all
 
 The brief argues ads are the weakest of the three channels for this ICP, and
