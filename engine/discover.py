@@ -306,10 +306,14 @@ class Query:
 
 @dataclass(frozen=True)
 class Own:
-    """OUR page and ad account. Loaded here, read by measure and feedback.
+    """OUR page and ad account. Validated here, read by engine/feedback.py.
 
-    Ships blank. Nothing in this module reads it; measure refuses by name
-    until it is filled in.
+    Ships blank. Nothing in this module reads it beyond validating its shape
+    at load, and engine/measure.py never opens this file at all - it works
+    from the ad ids pinned into queue/launched/<segment>.json, which is the
+    only place that says which ads are ours. A blank block is therefore not
+    an error: engine/feedback.py writes page_id "" into the record, which is
+    true, rather than guessing.
     """
 
     page_id: str | None = None

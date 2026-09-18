@@ -1303,6 +1303,24 @@ def test_the_module_reads_no_seeds_file():
     assert "yaml" not in _imports(ast.parse(Path(measure.__file__).read_text(encoding="utf-8")).body)
 
 
+def test_the_shipped_seeds_file_does_not_promise_a_refusal_this_module_has_not():
+    """research/seeds.yaml told the operator the opposite of the test above.
+
+    Measured: the own: header said "Read by engine/measure.py" and that a
+    blank block makes `python -m engine.measure` refuse by name. Nothing here
+    opens seeds.yaml, so an operator who left the block blank on that promise
+    would read a clean run as proof it was filled in, while engine.feedback
+    silently writes page_id "" and channel "own". The file now names its real
+    reader and says what a blank block costs: a record's channel, not a call.
+    """
+    text = (ROOT / "research" / "seeds.yaml").read_text(encoding="utf-8")
+    own = text[text.index("# own - "):]
+    assert "measure` refuses" not in text and "measure refuses" not in text
+    assert "read by measure and feedback only" not in text
+    assert "Read by engine/feedback.py" in own
+    assert "does NOT open this file" in own
+
+
 def test_the_token_has_one_owner():
     assert measure.META_ACCESS_TOKEN == oauth.META_ACCESS_TOKEN == "META_ACCESS_TOKEN"
 

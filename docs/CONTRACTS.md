@@ -219,7 +219,7 @@ queries:                      # keyword searches; a bare string is icp-adjacent
   - query: buhalterine apskaita
     countries: [LT]
     languages: [lt]
-own:                          # OUR page and ad account; read by measure/feedback only
+own:                          # OUR page and ad account; validated by discover, read by feedback
   page_id:
   page_name:
   ad_account_id:

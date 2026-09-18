@@ -296,7 +296,14 @@ def _write_selection(job: dict, dest: Path, segment_id: str,
     if kind != REEL:
         return None
 
-    record = concept if concept is not None else synthetic_concept(job, segment_id)
+    # The job's placement, not the concept's: an explicit --placement wins in
+    # write.generate, and reel_selection re-derives the aspect from whatever
+    # record it is handed. Measured: concept a01 (static-1x1) with --placement
+    # reels-9x16 wrote a kind="reel" job beside a sidecar saying
+    # "still frame, 1:1", and reel-engine puts that string straight into the
+    # reel writer's prompt. synthetic_concept already reads the job's.
+    record = (dict(concept, placement=job["placement"]) if concept is not None
+              else synthetic_concept(job, segment_id))
     document = write.reel_selection(record, segment_id, now=now)
     path = _selection_path(dest, segment_id)
     path.write_text(

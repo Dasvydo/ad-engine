@@ -118,15 +118,21 @@ def scripts_of(name: str) -> list:
     ]
 
 
+def commands_in(script: str) -> str:
+    """One run body with its comment lines removed - what actually executes.
+
+    commands_of() is the whole file, which is right for "this workflow never
+    does X" and wrong for "this step passes this flag": propose.yml carries
+    `echo "::error::--segment ID"` in another step, and that would satisfy a
+    substring search as happily as a comment does.
+    """
+    return "\n".join(line for line in script.splitlines()
+                     if not line.strip().startswith("#"))
+
+
 def commands_of(name: str) -> str:
     """Every run body with its comment lines removed - what actually executes."""
-    lines = []
-    for script in scripts_of(name):
-        for line in script.splitlines():
-            if line.strip().startswith("#"):
-                continue
-            lines.append(line)
-    return "\n".join(lines)
+    return "\n".join(commands_in(script) for script in scripts_of(name))
 
 
 # --------------------------------------------------------------------------
@@ -551,6 +557,45 @@ def _cron_fields(name: str) -> list:
     return [entry["cron"].split() for entry in triggers(parsed(name))["schedule"]]
 
 
+def test_a_pinned_number_is_read_from_the_command_not_from_its_comment(
+        tmp_path, monkeypatch):
+    """The two tests below pin a number the workflow also spells out in prose.
+
+    Measured, not feared: `args=(--budget 200)` under an untouched
+    `# --budget 150, not the module default of 200.` and `args=(--retries 1 ...)`
+    under an untouched `# --retries 2, ...` both left this whole file green,
+    because those tests read the raw run body and the comment alone satisfied
+    the substring. So the pins this module advertises bound nothing.
+
+    This runs those two tests against exactly those mutations and requires
+    them to go red. It is a guard on the reading, not on the numbers: if
+    either test goes back to step_with(...)["run"], the pin is decorative
+    again and this fails.
+    """
+    # Read from the real directory throughout: WORKFLOWS is redirected below,
+    # and the second pass would otherwise look for its workflow in tmp_path.
+    on_disk = WORKFLOWS
+    for name, real, mutated, pinned in (
+            ("research.yml", "--budget 150", "--budget 200",
+             test_the_scheduled_sweep_stays_under_the_hour_it_shares),
+            ("propose.yml", "--retries 2", "--retries 1",
+             test_propose_still_falls_back_to_the_backlog)):
+        text = (on_disk / name).read_text(encoding="utf-8")
+        broken = text.replace("args=(%s" % real, "args=(%s" % mutated)
+        assert broken != text, (
+            "%s no longer opens its args array with %s, so this guard mutates "
+            "nothing - re-point it at how the flag is spelled now"
+            % (name, real))
+        assert real in broken, (
+            "%s no longer names %s in a comment, so the raw body would catch "
+            "this on its own and this guard has nothing left to prove"
+            % (name, real))
+        (tmp_path / name).write_text(broken, encoding="utf-8")
+        monkeypatch.setattr(sys.modules[__name__], "WORKFLOWS", tmp_path)
+        with pytest.raises(AssertionError):
+            pinned()
+
+
 def test_the_scheduled_sweep_stays_under_the_hour_it_shares():
     """--budget 150, not the module default of 200.
 
@@ -564,7 +609,11 @@ def test_the_scheduled_sweep_stays_under_the_hour_it_shares():
     150 leaves 50, which is four times what the shipped research/seeds.yaml
     costs at its ceiling (6 searches, 12 calls at two pages each).
     """
-    run = step_with("research.yml", "research")["run"]
+    # The commands, not the comment above them. This read the raw body until
+    # a scratch copy showed why that was worth nothing: research.yml's comment
+    # spells the flag out, so `args=(--budget 200)` under an untouched
+    # `# --budget 150, ...` left the whole file green.
+    run = commands_in(step_with("research.yml", "research")["run"])
     assert "--budget 150" in run, (
         "the sweep does not cap its Ad Library spend at 150 calls, so a re-run "
         "in the same hour may be refused before it starts")
@@ -640,7 +689,10 @@ def test_propose_still_falls_back_to_the_backlog():
     regress: a repository with no report, a week whose research was a dry run,
     an operator naming a segment by hand. The report is a preference, never a
     requirement."""
-    run = step_with("propose.yml", "propose")["run"]
+    # Commands only: the block above these flags names `--segment` and
+    # `--retries 2` in prose, and reading the raw body let `--retries 1` ship
+    # green underneath it.
+    run = commands_in(step_with("propose.yml", "propose")["run"])
     assert "-f research/selection.json" in run, (
         "propose must TEST for the report; assuming it would break every run "
         "that has none")
@@ -775,12 +827,28 @@ def test_the_build_runs_the_siblings_renderer_with_the_jobs_own_choices():
     assert 'cd "$REEL_ENGINE"' in run, (
         "reel-engine's propose has to run with the sibling as its working "
         "directory; its ROOT is where it writes the MP4")
-    assert '"$GITHUB_WORKSPACE/queue/proposed/$SEGMENT.reel.json"' in run, (
+    assert '"$GITHUB_WORKSPACE/$SELECTION"' in run, (
         "the selection must be an ABSOLUTE path: a relative one resolves "
         "inside reel-engine, where this repository's queue does not exist")
     env = step_with("build.yml", "reel")["env"]
     assert env["GEMINI_API_KEY"] == "${{ secrets.GEMINI_API_KEY }}", (
         "reel-engine writes the reel's script before rendering it")
+
+
+def test_the_render_shoots_the_document_the_creative_reader_read():
+    """$CONCEPT was read out of creative_source.selection by the step above.
+    Rebuilding that path in bash is the second opinion this file's own header
+    says it exists to prevent: a job naming one sidecar and a render shooting
+    another agree today only because both spellings happen to match, and the
+    concept would then be looked up in a document nobody validated.
+    """
+    step = step_with("build.yml", "reel")
+    assert step["env"]["SELECTION"] == "${{ steps.creative.outputs.selection }}", (
+        "the reel step must take the selection off the creative reader's "
+        "output, which is the path the concept was read from")
+    run = step["run"]
+    assert "$SEGMENT.reel.json" not in run, (
+        "the sidecar's name is re-derived in shell; the job already carries it")
 
 
 def test_a_failed_render_blocks_the_issue_instead_of_advancing_it():
@@ -1044,6 +1112,20 @@ def test_the_creative_reader_refuses_a_selection_that_selects_nothing(
     with pytest.raises(SystemExit) as caught:
         _run_creative(tmp_path, monkeypatch, _example_job(), sidecar)
     assert "selects no concept" in str(caught.value)
+
+
+def test_the_creative_reader_refuses_a_selection_that_leaves_the_repository(
+        tmp_path, monkeypatch):
+    """The render joins this value onto $GITHUB_WORKSPACE, so an absolute or
+    climbing path reads fine in this step and then misses in the sibling -
+    after the checkout and the Chromium install. Refused here instead.
+    """
+    job = _example_job()
+    job["creative_source"] = dict(job["creative_source"],
+                                  selection="/tmp/payroll-bureaus.reel.json")
+    with pytest.raises(SystemExit) as caught:
+        _run_creative(tmp_path, monkeypatch, job, SIDECAR)
+    assert "not a path inside this repository" in str(caught.value)
 
 
 def test_the_creative_reader_never_forges_an_output_line(
@@ -1660,6 +1742,41 @@ def test_the_runner_is_linux_everywhere():
             assert str(job["runs-on"]).startswith("ubuntu"), (
                 "%s job %r runs on %r, which is not billed at 1x"
                 % (name, job_name, job["runs-on"]))
+
+
+def test_the_graph_version_override_reaches_the_step_that_would_use_it():
+    """An override nothing maps into the runner is an override that does not
+    exist, and docs/SECRETS.md documented this one as a repository VARIABLE
+    before any workflow passed it - so setting it would have changed nothing
+    and the operator would have had no way to tell.
+
+    engine/discover.py and engine/measure.py both read META_GRAPH_VERSION from
+    the environment and insert it into the Graph URL when a field they read
+    turns out to need a version. Both steps that open a Graph call therefore
+    map it. It is `vars.` and not `secrets.` because a version string is not a
+    credential, and a variable is visible on the settings page beside the token
+    it qualifies.
+    """
+    for name, step_id in (("research.yml", "research"), ("measure.yml", "measure")):
+        env = step_with(name, step_id).get("env") or {}
+        assert "META_GRAPH_VERSION" in env, (
+            "%s's %s step opens a Graph call but cannot see the version "
+            "override docs/SECRETS.md tells an operator to set" % (name, step_id))
+        assert env["META_GRAPH_VERSION"] == "${{ vars.META_GRAPH_VERSION }}", (
+            "%s passes META_GRAPH_VERSION as %r; a version string is a "
+            "variable, not a secret" % (name, env["META_GRAPH_VERSION"]))
+
+
+def test_the_feedback_step_is_handed_no_credential_at_all():
+    """engine/feedback.py reads two files and counts words. It calls no model
+    and opens no socket - tests/test_feedback.py AST-parses it to prove that -
+    so a token or a key on its step would be a credential handed to a process
+    that has nowhere to send it.
+    """
+    env = step_with("measure.yml", "feedback").get("env") or {}
+    for name in ("META_ACCESS_TOKEN", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        assert name not in env, (
+            "measure.yml's feedback step is handed %s, which it cannot use" % name)
 
 
 if __name__ == "__main__":  # pragma: no cover

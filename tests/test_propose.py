@@ -314,6 +314,27 @@ def test_placement_overrides_the_concept_and_a_still_gets_no_sidecar(repo, tmp_p
     assert not sidecar_path(repo, "payroll-bureaus").exists()
 
 
+def test_the_sidecar_names_the_aspect_the_job_was_given_not_the_concept(repo, tmp_path):
+    """--placement wins in the job, so it has to win in the sidecar too.
+
+    Measured before the fix: concept a01 (static-1x1) with --placement
+    reels-9x16 wrote a kind="reel" job beside a sidecar saying
+    "still frame, 1:1", and reel-engine renders from that string - its
+    script.py puts `format` verbatim into the reel writer's prompt, so the
+    brief told the model it was writing a 1:1 still.
+    """
+    selection(concept(placement="static-1x1"), path=tmp_path / "selection.json")
+    client = StubClient([written(), passed()])
+
+    assert propose.main(["--concept", "a01", "--placement", "reels-9x16"],
+                        client=client, now=NOW) == 0
+
+    job = json.loads(job_path(repo, "payroll-bureaus").read_text(encoding="utf-8"))
+    document = json.loads(sidecar_path(repo, "payroll-bureaus").read_text(encoding="utf-8"))
+    assert job["placement"] == "reels-9x16"
+    assert document["concepts"][0]["format"] == write.FORMAT_BY_PLACEMENT["reels-9x16"]
+
+
 def test_an_unknown_placement_is_argparse_not_a_call(repo):
     with pytest.raises(SystemExit) as caught:
         propose.main(["--segment", "payroll-bureaus", "--placement", "billboard"],

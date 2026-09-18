@@ -184,7 +184,7 @@ Treated below as a budget to charge before the socket, exactly like YouTube's
 endpoint returns. Nobody in this session read them in full. Before the first
 corpus record is committed, a human reads them and decides whether the record
 holds the creative text verbatim or only what was derived from it (section
-8, decision 5). The corpus is in a private repository either way.
+8, decision 6). The corpus is in a private repository either way.
 
 ### 2.3 What "best performing" can honestly mean
 
@@ -237,8 +237,12 @@ countries:  the default ad_reached_countries - DK and LT. A competitor page may
             be given its own list, because a US or UK competitor does not run
             in DK and will not appear at all unless the country it does run in
             is asked for.
-own:        OUR page id and OUR ad account id, read only by measure. Ships blank
-            and measure refuses by name until it is filled in.
+own:        OUR page id and OUR ad account id. Ships blank, and blank is a
+            valid state: engine/discover.py validates its shape at load and
+            engine/feedback.py is its only reader, writing page_id "" into an
+            own record rather than guessing. engine/measure.py never opens
+            this file - the ad ids pinned into queue/launched/<segment>.json
+            are what say which ads are ours.
 ```
 
 Carried over: the loader's whole posture - validate everything at load, before
@@ -611,7 +615,7 @@ In order, with what each one unblocks.
    Balance, GoSimple, and the Danish and Lithuanian accounting-software pages
    (Dinero, e-conomic, Billy, Rivile - unverified, chosen as examples of the
    kind). *Unblocks a corpus with a per-page baseline.*
-3. **Read the Ad Library API terms** and take decision 5 in section 8 on what
+3. **Read the Ad Library API terms** and take decision 6 in section 8 on what
    the corpus record stores. *Unblocks committing records.*
 4. **An access token for our own ad account**, read-only (`ads_read`) for
    measure. Check whether a System User token is accepted. *Unblocks measure;

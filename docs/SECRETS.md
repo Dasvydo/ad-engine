@@ -5,17 +5,17 @@ without it. Secrets live in GitHub Actions secrets. Never in the repository,
 never in a Drive mirror, never in a URL.
 
 Set them at **Settings > Secrets and variables > Actions**. Secrets and
-Variables are two different tabs on that screen, and one of the five below is
-deliberately a variable.
+Variables are two different tabs on that screen, and two of the six below are
+deliberately variables.
 
 | Name | Kind | Read by | Required today |
 |---|---|---|---|
-| `GEMINI_API_KEY` | secret | `research.yml` and `propose.yml`, through `engine/model.py` | **Yes, to research or to propose** |
+| `GEMINI_API_KEY` | secret | `research.yml` and `propose.yml`, through `engine/model.py`, and `build.yml` on a `reel` job, through `reel-engine`'s own `engine/model.py` | **Yes, to research, to propose, or to shoot a reel** |
 | `META_ACCESS_TOKEN` | secret | `research.yml` and `measure.yml`, through `engine/oauth.py` | **Yes, to discover or to measure.** Does not exist yet |
 | `META_TOKEN_ISSUED` | **variable**, `YYYY-MM-DD` | `engine/oauth.py` | **Yes, beside the token.** Set it in the same visit |
 | `REEL_ENGINE_TOKEN` | secret, fine-grained PAT | `build.yml` only, and only for a `reel` creative | **Yes, to shoot a video.** Does not exist yet |
 | `GITHUB_TOKEN` | automatic | every workflow that commits, and the four that open, label or close an issue | Supplied by Actions - not something you create |
-| `META_GRAPH_VERSION` | optional variable, `v21.0` | `engine/discover.py`, `engine/measure.py` | No. Unset means the unversioned host, which is what both modules want |
+| `META_GRAPH_VERSION` | optional **variable**, `v21.0` | `research.yml` and `measure.yml`, through `engine/discover.py` and `engine/measure.py` | No. Unset means the unversioned host, which is what both modules want |
 
 `GOOGLE_API_KEY` is accepted as a fallback for `GEMINI_API_KEY` because the
 Google SDK looks for it unprompted, but set `GEMINI_API_KEY`: it is the name
@@ -55,6 +55,11 @@ Monday that runs both the sweep and a propose costs.
 unset, with a message naming the secret. They do not skip a step and report
 success - a silent skip on an unattended cron is how an engine looks healthy
 while doing nothing.
+
+`build.yml` fails on it too, but only where the job's `creative_source.kind` is
+`reel`: the key is handed to the sibling checkout, where `reel-engine` writes
+the reel's script before rendering and gates the result. A `still` or `none`
+creative never opens that path and never spends a call.
 
 `engine/model.py` is the only module that imports `google.genai`, and
 `engine/model.client()` raises before any socket when the key is missing, with
@@ -200,9 +205,11 @@ repositories.
 `Dasvydo/reel-engine`, Repository permissions > **Contents: Read-only**.
 Nothing else, and nothing write. Set it here as `REEL_ENGINE_TOKEN`.
 
-Without it, `build.yml` fails on a reel job naming the secret. A `still` or
-`none` creative takes the short path - no sibling checkout, no browser, no
-model call - and needs nothing from this section.
+Without it, `build.yml` fails on a reel job naming the secret. A reel job needs
+**both** this token and `GEMINI_API_KEY` - one credential guard checks the two
+together, because the sibling writes the reel's script before it renders. A
+`still` or `none` creative takes the short path - no sibling checkout, no
+browser, no model call - and needs neither.
 
 ---
 

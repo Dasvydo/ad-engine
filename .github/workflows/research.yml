@@ -192,6 +192,11 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           META_TOKEN_ISSUED: ${{ vars.META_TOKEN_ISSUED }}
+          # A repository variable reaches the runner only through a mapping
+          # like this one. Unset it interpolates to "", which engine/discover.py
+          # strips back to the unversioned host it wants by default - so the
+          # knob is inert until somebody sets it, and connected once they do.
+          META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION }}
           MAX_ADS: ${{ inputs.max_ads }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |

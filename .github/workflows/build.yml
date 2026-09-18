@@ -151,6 +151,18 @@ jobs:
                       "%s asks for a reel but names no creative_source.selection, "
                       "so there is no concept to shoot it from." % segment
                   )
+              # The render step joins this onto $GITHUB_WORKSPACE, so a
+              # value that is not ROOT-relative reads here and then misses
+              # there. Measured: "/tmp/x.reel.json" opens fine in this step
+              # and arrives at the sibling as
+              # "$GITHUB_WORKSPACE//tmp/x.reel.json".
+              if selection.startswith("/") or ".." in selection.split("/"):
+                  raise SystemExit(
+                      "%s names creative_source.selection %r, which is not a "
+                      "path inside this repository. engine/write.py stamps "
+                      "queue/proposed/<segment>.reel.json; re-run propose for "
+                      "this segment." % (segment, selection)
+                  )
               document = json.loads(
                   pathlib.Path(selection).read_text(encoding="utf-8")
               )
@@ -293,12 +305,17 @@ jobs:
           SEGMENT: ${{ steps.job.outputs.segment }}
           CONCEPT: ${{ steps.creative.outputs.concept }}
           TEMPLATE: ${{ steps.creative.outputs.template }}
+          SELECTION: ${{ steps.creative.outputs.selection }}
         run: |
           set -euo pipefail
-          # The selection is passed as an ABSOLUTE path because this runs with
-          # the sibling as its working directory: a relative one would resolve
-          # inside reel-engine, where this repository's queue does not exist.
-          selection="$GITHUB_WORKSPACE/queue/proposed/$SEGMENT.reel.json"
+          # The file the reader above already opened, not a second guess at
+          # its name: the concept in $CONCEPT was read out of $SELECTION, and
+          # rebuilding the path here would let the job name one document and
+          # the render shoot another. Joined onto $GITHUB_WORKSPACE because
+          # this runs with the sibling as its working directory: the
+          # ROOT-relative path the job carries would resolve inside
+          # reel-engine, where this repository's queue does not exist.
+          selection="$GITHUB_WORKSPACE/$SELECTION"
           cd "$REEL_ENGINE"
           # --still as well as --render: the frame is what the approval issue
           # shows, and it is committed beside the job so the issue keeps

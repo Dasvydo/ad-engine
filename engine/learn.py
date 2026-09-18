@@ -86,9 +86,16 @@ would produce a diff every run saying nothing changed. Three rules prevent it:
     are ordered by (kind, device). Nothing is emitted in the order a dict or a
     set happened to yield it.
   - Ids come from that sorted order, so q03 keeps meaning the same pattern for
-    as long as the pattern exists. Ordering by support instead would renumber
-    the whole file whenever one new ad changed the ranking, and last week's
-    concept would cite a pattern it was never derived from.
+    as long as the set of (kind, device) pairs is unchanged - and no longer.
+    The number is a position in that order, not a property of the pattern:
+    measured on a four-ad corpus, analysing two more ads whose hook device is
+    "before-after" inserted one pattern at the top and moved all 13 existing
+    ids by one. Ordering by support instead would renumber on every ad that
+    shifted a ranking, which is far oftener - but neither ordering makes a
+    stored id safe to resolve against a patterns file regenerated since it
+    was written. A citation that has to survive a regeneration needs the
+    pattern's kind and device stored beside the id, and engine/concepts.py
+    stores the id alone.
   - generated_at is the newest fetched_at in the corpus, NOT the clock. This
     file describes a corpus; regenerating it from an unchanged corpus has
     nothing new to say and should produce the same bytes.

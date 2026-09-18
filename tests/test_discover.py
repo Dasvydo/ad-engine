@@ -1177,7 +1177,15 @@ def test_the_shipped_seeds_file_explains_itself():
     assert text.startswith("#"), "the file opens with its explanation"
     for key in ("countries", "page_id", "origin", "queries", "languages", "own", "ad_account_id"):
         assert key in text
-    assert "refuses by name" in text
+    # The refusal posture is explained, and explained about the thing that
+    # actually refuses. A blank page_id under `pages` IS refused by name at
+    # load; a blank `own:` block is refused by nothing, and the file said the
+    # opposite until 2026-09-18 - it credited engine/measure.py with a refusal
+    # that module cannot make, because it never opens this file. A bare
+    # substring check on "refuses by name" passed throughout, which is why
+    # both halves are pinned here rather than one phrase.
+    assert "refuses by name at load" in text
+    assert "refused by nothing" in text
 
 
 # ---------------------------------------------------------------------------

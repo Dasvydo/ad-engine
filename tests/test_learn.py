@@ -610,6 +610,40 @@ def test_ids_widen_past_ninety_nine_so_they_still_sort():
     assert ids == sorted(ids)
 
 
+def test_a_new_device_renumbers_every_id_after_it():
+    """The measurement behind the docstring's Determinism rule.
+
+    An id is a position in the (kind, device) order, not a property of the
+    pattern. Two more ads whose hook device is "before-after" insert one
+    pattern at the top of the hook kind and move every id after it, so a
+    citation stored last week resolves to a different pattern this week.
+    Pinned so that nobody reads the numbering as a promise it does not make.
+    """
+    before = corpus_of(*PAIR, record("fb-ccc"), record("fb-ddd"))
+    was = {p["id"]: (p["kind"], p["device"]) for p in learn.build(before)["patterns"]}
+    after = before + [
+        record("fb-eee", hook_device="before-after"),
+        record("fb-fff", hook_device="before-after"),
+    ]
+    now = {p["id"]: (p["kind"], p["device"]) for p in learn.build(after)["patterns"]}
+
+    assert was["q01"] == ("hook", "question")
+    assert now["q01"] == ("hook", "before-after")
+    moved = [pid for pid in was if pid in now and was[pid] != now[pid]]
+    assert moved == sorted(was), moved
+
+
+def test_the_determinism_rule_does_not_promise_ids_survive_a_regeneration():
+    """A docstring that named the harm it prevents while the code allowed it
+    would be worse than silence: engine/propose.py resolves a stored
+    pattern_id against whatever patterns.json is on disk, and trusts any id
+    that is still there. The rule has to state the condition it holds under.
+    """
+    doc = " ".join(learn.__doc__.split())
+    assert "as long as the pattern exists" not in doc
+    assert "as long as the set of (kind, device) pairs is unchanged" in doc
+
+
 # --- metrics that engine.corpus never type-checked ------------------------
 
 

@@ -11,7 +11,7 @@
 # Everything here is edited by hand and committed. Git history is the record
 # of what the engine was told to watch and when.
 #
-# The blank own: block at the bottom is read by measure and feedback only.
+# The blank own: block at the bottom is read by engine/feedback.py only.
 #
 # --------------------------------------------------------------------------
 # countries - the default ad_reached_countries.
@@ -123,21 +123,26 @@ queries:
     countries: [DK, LT]
 
 # --------------------------------------------------------------------------
-# own - OUR page and OUR ad account. Read by engine/measure.py and
-# engine/feedback.py; engine/discover.py loads it and ignores it.
+# own - OUR page and OUR ad account. Read by engine/feedback.py, which stamps
+# them onto every record it writes for one of our own ads;
+# engine/discover.py validates the block at load and reads it no further.
 #
-# Measure reads back how our own launched ads performed, and it has to be
-# told which account is ours. It will not guess: a wrong id here measures
-# somebody else's ads and writes their numbers into our feedback loop, which
-# is worse than not measuring at all.
+# engine/measure.py does NOT open this file. It measures an ad by the id a
+# human pinned with `python -m engine.approval launch`, and an ad id is
+# globally unique on the Graph API - the token's `ads_read` on our own
+# account is what scopes the answer, so measure never has to be told which
+# account is ours. It is the account-level batched read, the one form nobody
+# here has verified against a live response, that would need ad_account_id.
 #
 #   page_id        the numeric id of OUR Facebook page, quoted
 #   page_name      the page name, as the record's channel
 #   ad_account_id  our ad account id as Ads Manager shows it, act_<digits>
 #
-# Leave them blank and `python -m engine.measure` refuses by name rather than
-# spending a call on a guess - the same posture as a blank page_id under
-# pages above.
+# Unlike a blank page_id under pages above, which engine/discover.py
+# refuses by name at load, a blank block here is refused by nothing:
+# feedback reads it blank and writes every own record with page_id "" and
+# channel "own". So a clean `python -m engine.measure` run is no evidence
+# that this block is filled in - it costs a record's channel, not a call.
 # --------------------------------------------------------------------------
 own:
   page_id:

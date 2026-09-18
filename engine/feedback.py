@@ -781,8 +781,10 @@ def load_own(seeds_path: Path | str | None = None) -> Own:
 
     Only that block is read. Blank is the shipped state and is not an error
     here - the record then carries page_id "" and channel "own", which is
-    true - whereas engine.measure refuses a blank block because it would
-    have to guess whose account to read.
+    true rather than guessed. This module is the block's only reader:
+    engine.discover validates its shape at load and reads it no further, and
+    engine.measure never opens the seeds file, because the ad ids pinned into
+    queue/launched/<segment>.json already say which ads are ours.
     """
     path = Path(seeds_path) if seeds_path else DEFAULT_SEEDS
     if not path.exists():
