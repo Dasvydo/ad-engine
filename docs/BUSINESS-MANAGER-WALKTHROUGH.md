@@ -54,28 +54,42 @@ before. Everything below is the price of admission.
 
 ## The path to a live ad — everything, in order
 
-Status as of 2026-09-16. ✅ done · 🔨 yours · 🤖 mine
+**Re-verified live 2026-09-18** against the ad account and the deployed bundle.
+Four rows moved since this table was written on 2026-09-16; the corrections are
+kept visible rather than overwritten. ✅ done · 🔨 yours · 🤖 mine
 
 | # | Step | Who |
 |---|---|---|
 | 1 | Ad account exists — `620456015062432` | ✅ |
 | 2 | Campaign + ad set, paused | ✅ 🤖 |
 | 3 | DSA advertiser = `DoviLoop` | ✅ |
-| 4 | **Facebook Page** — create, fill, post 2-3 times, publish | 🔨 **blocking** |
-| 5 | **Payment method** — card on the ad account | 🔨 **blocking** |
-| 6 | Confirm the Page is visible to the ad account | 🤖 one call |
-| 7 | Ad creative image — generate on brand | 🤖 (Canva / HiggsField) |
-| 8 | Ad copy — English, through `engine.cli check` **and** read by hand | 🤖 |
+| 4 | ~~Facebook Page — blocking~~ **Already existed.** `DoviLoop`, page_id `1294387330427112` | ✅ |
+| 5 | **Payment method** — card on the ad account | 🔨 **BLOCKING** |
+| 5b | **Destination URL** — delete the Porkbun `teams` URL Forward | 🔨 **BLOCKING** |
+| 6 | Page visible to the ad account | ✅ confirmed via `ads_get_user_pages` |
+| 7 | Ad creative image | ✅ 16 rendered statics in `creative/static/out/` |
+| 8 | Ad copy — English, through the gate **and** read by hand | ✅ 6 variants in `creative/copy/` |
 | 9 | Build the ad, still paused | 🤖 |
 | 10 | Look at the preview and approve it | 🔨 |
 | 11 | Unpause | 🔨 your word, then either of us |
 
-**Only 4 and 5 are blocking.** Everything from 6 on is minutes once they exist.
+**Only 5 and 5b are blocking.** Both are browser work, neither depends on the
+other, and together they are about half an hour.
 
-**Not on this path, deliberately:** the pixel, the outreach list, the `da`/`lt`
-proofread. None of them block *this* campaign — it is Reach, English, broad geo.
-The pixel is still worth starting tonight because it is a clock (§2), but it is a
-separate track.
+**5b is new to this table and is the harder gate of the two.** An ad creative
+bakes in its destination URL, so building the ad before the domain lands means
+rebuilding it. `teams.doviloop.dev` is a Porkbun URL Forward that 301s to the
+product site — re-checked 2026-09-18, still live. Full runbook:
+`docs/FUNNEL-HANDOFF.md` Blocker 1, and the click-by-click in the vault at
+`runbooks/point-teams-subdomain-at-the-landing-page.md`.
+
+**Corrections to what this section used to say:**
+- *"the pixel is not on this path"* — the pixel is **live**, id `1584074833462346`,
+  collecting on the campaign site since 2026-09-12. Steps 6 and 7 below are done.
+- *"it is Reach, English, broad geo"* — the campaign is **`OUTCOME_TRAFFIC`** now.
+  Meta forbids changing an objective, so it was rebuilt; the Awareness pair is
+  superseded and still present, paused and empty.
+- The outreach list and the `da`/`lt` proofread genuinely are still off this path.
 
 ⚠️ **One security decision, and take it seriously.** When you connect the
 connector, Meta's OAuth screen offers scope tiers — reportedly including a
@@ -103,7 +117,13 @@ Meta asks, and a mismatch is a slow problem to unwind.
 
 ---
 
-### ☐ 2. A Facebook Page for DoviLoop — **the current blocker**
+### ☐ 2. A Facebook Page for DoviLoop — ✅ **DONE, it already existed**
+
+> Read live 2026-09-18: the account can advertise as **`DoviLoop`**, page_id
+> **`1294387330427112`**. Two other Pages sit on the same user and are not this
+> product: `garazasvilnius`, `All-Upper`. Use the DoviLoop id in every creative.
+> The rest of this section is kept for filling the Page out, which still matters —
+> a Page with no posts makes a worse ad — but it is no longer blocking.
 
 **You cannot run ads without one.** There is no such thing as an ad with no Page
 behind it. The Page is the "from" on the ad: its name and profile picture *are*
@@ -162,12 +182,20 @@ Tell me when it's up and I'll confirm.
 
 ---
 
-### ☐ 3. Ad account
+### ☐ 3. Ad account — ✅ **DONE, and do not re-read the advice below as a to-do**
+
+> The account exists: `620456015062432`, ACTIVE, MCP-enabled, personal (no
+> Business Manager). **Its currency is DKK and that is permanent** — the "set EUR"
+> instruction below was written before the account existed and can no longer be
+> acted on. Budgets are therefore in kroner: minimum **DKK 6.46/day**, and the
+> live campaign is set to **DKK 35/day**.
+
 Business Settings → Accounts → Ad accounts → Add → **Create a new ad account**.
 
 🚨 **Currency and timezone cannot be changed after creation. Ever.** Not by
 support, not by you. Set **EUR** and **Europe/Vilnius** and read them back before
-confirming.
+confirming. *(Historical — see the note above. Kept because it is the reason the
+account is in DKK and nothing can be done about it.)*
 
 *Worked when:* you have an ID shaped like `act_123456789`.
 
@@ -176,14 +204,37 @@ numeric ID resolves far more reliably than the account name.
 
 ---
 
-### ☐ 4. Payment method
-Billing → Payment settings → add a card.
+### ☐ 4. Payment method — 🔨 **THE BLOCKER. Verified still missing 2026-09-18.**
 
-Expect a small temporary authorisation charge. Expect a low initial spending
-limit — new accounts get one automatically. It rises on its own with billing
-history.
+`has_payment_method: false`, read live off the account today.
 
-*Worked when:* the account shows an active payment method and no red banner.
+**Ads Manager → the ☰ menu → Billing & payments → Payment settings → Add payment
+method.** Or go straight to `facebook.com/ads/manager/account_settings/account_billing/`
+with the account selected.
+
+Choose the account first. It is `620456015062432`, named "Dovydas Vinickis" — a
+personal ad account, so it will not appear under a business.
+
+**What to expect, none of which is a fault:**
+- A **small temporary authorisation charge** to validate the card. It reverses.
+- A **low initial spending limit**, applied automatically to new accounts. It
+  rises on its own with billing history. At DKK 35/day it is very unlikely to bind.
+- **Billing is in DKK** and cannot be changed. A non-DKK card is fine; your bank
+  converts and may add a fee.
+- Meta bills **in arrears** on a threshold or a monthly date, so adding a card
+  does not charge you for the campaign. Nothing spends while everything is paused.
+
+*Worked when:* the account shows an active payment method, no red banner, and
+
+```
+ads_get_ad_accounts → has_payment_method: true
+```
+
+Ask me to re-read the account and I will confirm it from the API rather than from
+the screen.
+
+⚠️ **Do not grant the connector a financial or billing scope** to do this. Card
+entry is regulated and is never an API call — see the security note above.
 
 ---
 
