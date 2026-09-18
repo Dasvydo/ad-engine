@@ -34,6 +34,12 @@ _RISKY = (
     (re.compile(r"\b(cuts?|cutting|halves?|halved|slash(?:es|ed)?)\b[^.\n]{0,30}\b(time|hours?|workload)\b", re.I), "hours_saved"),
     (re.compile(r"\b(in|by)\s+half\b", re.I), "hours_saved"),
     (re.compile(r"\bhalf\s+the\s+(time|work|hours)\b", re.I), "hours_saved"),
+    # Spelled-out quantities. scripts/sync_skill_claims.py documented "Save ten
+    # hours a month" and "Save hours every week" as blind spots on 2026-09-16, and
+    # they were: every pattern above needs a digit or a currency, and neither
+    # string has one. Merged from the ads-integration branch 2026-09-18.
+    (re.compile(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|dozens?)\s+(hours?|hrs?|minutes?|days?|weeks?)\b", re.I), "hours_saved"),
+    (re.compile(r"\bsaves?\b[^.\n]{0,15}\b(hours?|time|minutes?)\b", re.I), "hours_saved"),
     # Money saved, in either word order.
     (re.compile(rf"\b\d[\d.,]*\s*(?:{_CURRENCY}|€|\$)\b[^.\n]{{0,40}}\b{_SAVE}\b", re.I), "money_saved"),
     (re.compile(rf"\b{_SAVE}\b[^.\n]{{0,40}}\b\d[\d.,]*\s*(?:{_CURRENCY}|€|\$)\b", re.I), "money_saved"),

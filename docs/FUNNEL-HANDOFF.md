@@ -19,7 +19,8 @@ Meta**. This file is that agreement.
 ## ⛔ Blocker 1 — there is no stable destination URL
 
 **Nothing is safe to put in an ad yet.** This is the first job, and it blocks the
-ad regardless of the Facebook Page or the payment method.
+ad regardless of the payment method. (The Facebook Page it also used to name is
+no longer outstanding — see "Still founder-only".)
 
 ### What the hosts actually do — measured 2026-09-16
 
@@ -324,7 +325,10 @@ regardless. Treat `roi_multiple` as live whether or not a scan mentions it.
 
 ## Still founder-only, unchanged
 
-- Create the Facebook Page.
+- ~~Create the Facebook Page.~~ **Done — it already existed.** Read live 2026-09-18:
+  the account can advertise as **`DoviLoop`, page_id `1294387330427112`**. Two other
+  Pages are available on the same user and are not this product: `garazasvilnius`,
+  `All-Upper`. Use the DoviLoop id in every creative's `object_story_spec`.
 - Add a payment method to the ad account.
 - Create the pixel in Events Manager, then paste its ID into Vercel as
   `VITE_META_PIXEL_ID` and redeploy.
