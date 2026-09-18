@@ -133,8 +133,30 @@ redeploy. See the next section for why this is last rather than first.
 ### One setting that must follow the DNS change
 
 The page declares its own origin in `canonical`, `og:url` and every `hreflang`
-alternate. Meta scrapes `og:url` to build the ad's link preview, so an ad pointing
-at one origin while the page names another is a mismatch visible **inside the ad**.
+alternate.
+
+⚠️ **Correction, 2026-09-18.** This section used to say Meta scrapes `og:url` to
+build the ad's link preview, so a stale origin would be visible inside the ad.
+**That was wrong, twice over.**
+
+First, `campaign-site/index.html` carries **no Open Graph tags at all** — only
+`<title>` and `<meta name="description">`. Every `og:*`, the `canonical` and every
+`hreflang` is written by JavaScript in `LocalePage`'s effect. Meta's crawler does
+not execute JavaScript, so it never sees any of them, stale or otherwise.
+
+Second, a **paid link ad does not use them anyway**: its image, headline and
+description come from the ad object's `object_story_spec`, not from scraping the
+destination. Open Graph tags matter for *organic* shares of the URL, not for the
+ad creative.
+
+So `VITE_SITE_ORIGIN` is still worth setting — `canonical` and `hreflang` are real
+for search engines, which do run JavaScript — but **it is not an ads blocker and
+never was.** It does not gate a single step of getting an ad live.
+
+**The real gap it uncovered:** with no static `og:image`, anyone sharing
+`teams.doviloop.dev` organically — including a post on the DoviLoop Page — gets a
+preview with no image. That is worth fixing before the Page is used to promote the
+link, and it is four static tags in `index.html`, not a rebuild.
 
 It was a literal in `campaign-site/src/LocalePage.tsx:26`. As of 2026-09-17 it
 reads `VITE_SITE_ORIGIN`, defaulting to the same deployment URL — **behaviour
