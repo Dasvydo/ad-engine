@@ -8,7 +8,7 @@
 Every factual assertion in ad copy must resolve to a `verified` entry below.
 If it does not, it does not ship. There is no 'probably fine'.
 
-## ✅ Verified — safe to claim (5)
+## ✅ Verified — safe to claim (6)
 
 ### `never_auto_sends`
 Product behaviour. Drafts are written to the Outlook drafts folder; no send call exists on the draft path.
@@ -45,7 +45,15 @@ WF9 builds a voice profile per mailbox from that person's sent mail.
 Safe phrasings:
 - In each person's own words
 
-## ⛔ Blocked — never claim (5)
+### `price`
+Confirmed by Dovy on 2026-09-06: 89 USD per seat per month plus 500 USD one-off setup. Supersedes the 49/99 USD and 750 USD figures that were in docs/ICP-BRIEF.md.
+
+Safe phrasings:
+- 89 USD a seat a month
+- 500 USD one-off setup
+- The setup fee covers the workshop and the knowledge base build
+
+## ⛔ Blocked — never claim (6)
 
 ### `hours_saved`
 **Why blocked:** No measured customer outcome exists. The pricing page's '10 hours a month' is a modelled estimate, not an observation.
@@ -65,12 +73,17 @@ Safe phrasings:
 ### `money_saved`
 **Why blocked:** No measured customer outcome exists. The campaign landing page renders '430 USD saved per month, for each person' - that figure is assumed hours at a mid-level salary, converted from euros, and the page says so in the same block ('These are a model, not a measurement' / 'Never yet checked against a real customer').
 
-**Note:** Do NOT echo the landing page's money figure into an ad. The page carries its own disclosure in the same eyeline; an ad carries none, and a figure lifted out of its disclosure is exactly the unbacked public promise an investor warned about. See docs/FUNNEL-HANDOFF.md.
+**Note:** Do NOT echo the landing page's money figure into an ad. The page carries its own disclosure in the same eyeline; an ad carries none, and a figure lifted out of its disclosure is exactly the unbacked public promise an investor warned about. See docs/FUNNEL-HANDOFF.md. UNIFIED 2026-09-18: this began as a hard block, written before roi_model was visible on claude/campaign-build-status-9j9194. The founder's rule of 2026-09-06 is the one that governs - a modelled figure MAY appear when the same ad says in plain words that it is a model or a worked example, because the reader sees the framing and never sees a note. Two rules on one subject is how one of them gets ignored, so these now share roi_model's escape.
 
 ### `roi_multiple`
 **Why blocked:** No measured return exists. The landing page computes its multiple at runtime from the modelled saving, a ten-person firm and the active tier price (campaign-site/src/components/Numbers.tsx:98). It is arithmetic over an assumption, not an observation - and it moves whenever the price moves.
 
-**Note:** Covers 'Nx', 'pays for itself' and 'N times over'. Same rule as money_saved: the page may state it with its disclosure attached, an ad may not state it at all.
+**Note:** Covers 'Nx', 'pays for itself' and 'N times over'. Same rule as money_saved: the page may state it with its disclosure attached, an ad may not state it at all. UNIFIED 2026-09-18: this began as a hard block, written before roi_model was visible on claude/campaign-build-status-9j9194. The founder's rule of 2026-09-06 is the one that governs - a modelled figure MAY appear when the same ad says in plain words that it is a model or a worked example, because the reader sees the framing and never sees a note. Two rules on one subject is how one of them gets ignored, so these now share roi_model's escape.
+
+### `roi_model`
+**Why blocked:** Decision 2026-09-06: the ~9x ROI, ~400 EUR per month saved per seat and ~40-day payback figures are outputs of a model, not measurements. The model assumes an amount of time saved per seat and costs it at a salary. No customer has been measured.
+
+**Note:** An ROI multiple, a payback period or a money-saved figure may appear in an ad ONLY if the same ad says in plain words that it is a model or a worked example. Never present it as an outcome. If the ad does not carry one of the framing phrases in allowed_if_framed_as, the gate blocks it.
 
 ## ⚠️ The gate does not catch everything
 

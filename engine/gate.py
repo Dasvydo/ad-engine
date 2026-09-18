@@ -26,6 +26,7 @@ EVIDENCE = ROOT / "claims" / "evidence.json"
 # docs/FUNNEL-HANDOFF.md, "the gate hole".
 _CURRENCY = r"(?:usd|eur|dkk|kr|euros?|dollars?)"
 _SAVE = r"(?:saved|saving|saves|save)"
+_SPELLED = r"(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|dozens?)"
 
 _RISKY = (
     (re.compile(r"\b\d+\s*(hours?|hrs?|timer|valand)", re.I), "hours_saved"),
@@ -38,7 +39,15 @@ _RISKY = (
     # hours a month" and "Save hours every week" as blind spots on 2026-09-16, and
     # they were: every pattern above needs a digit or a currency, and neither
     # string has one. Merged from the ads-integration branch 2026-09-18.
-    (re.compile(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|dozens?)\s+(hours?|hrs?|minutes?|days?|weeks?)\b", re.I), "hours_saved"),
+    # Must read as a SAVING, not merely as a duration. The first version of this
+    # matched any spelled number plus a time unit, which blocked "two weeks" -
+    # the pilot length in creative/copy/v5-pilot.json and the whole subject of
+    # creative/static/specs/s05-two-weeks.json. A two-week pilot is a fact about
+    # what the firm gets, not a claim about time they get back. Caught by
+    # tests/test_copy.py on the merge of claude/campaign-build-status-9j9194,
+    # which is the argument for that branch's copy corpus existing at all.
+    (re.compile(rf"\b(?:{_SAVE}|back|frees?\s+up|freed\s+up)\b[^.\n]{{0,25}}\b{_SPELLED}\s+(?:hours?|hrs?|minutes?|days?|weeks?)\b", re.I), "hours_saved"),
+    (re.compile(rf"\b{_SPELLED}\s+(hours?|hrs?|minutes?)\b[^.\n]{{0,25}}\b(saved|back|freed)\b", re.I), "hours_saved"),
     (re.compile(r"\bsaves?\b[^.\n]{0,15}\b(hours?|time|minutes?)\b", re.I), "hours_saved"),
     # Money saved, in either word order.
     (re.compile(rf"\b\d[\d.,]*\s*(?:{_CURRENCY}|€|\$)\b[^.\n]{{0,40}}\b{_SAVE}\b", re.I), "money_saved"),
@@ -58,6 +67,15 @@ _RISKY = (
     (re.compile(r"\b(trusted by|used by|join)\s+\d", re.I), "customer_count"),
     (re.compile(r"\b\d+\s*(firms?|companies|customers|clients)\s+(use|trust)", re.I), "customer_count"),
     (re.compile(r"\d+\s*%", re.I), "percentage_claim"),
+    # ROI-shaped claims. Added 2026-09-06 after Dovy confirmed the 9x / 400 EUR /
+    # 40-day figures are a model, not a measurement. Before this, "9x ROI" would
+    # have passed the gate unnoticed. A multiple ("9x"), a payback period, or a
+    # money-saved figure all resolve to roi_model, which is UNVERIFIED and only
+    # passes when the ad itself says it is a model or a worked example.
+    (re.compile(r"\b\d+(?:\.\d+)?\s?x\b(?!\d)", re.I), "roi_model"),
+    (re.compile(r"\bpayback\b|\bpays? (?:for )?itself\b|\breturn on investment\b|\bROI\b", re.I), "roi_model"),
+    (re.compile(r"\b(?:saves?|saved|saving)\b[^.\n]{0,40}?(?:eur|usd|dkk|kr\.?|€|\$)\s?\d", re.I), "roi_model"),
+    (re.compile(r"(?:eur|usd|dkk|kr\.?|€|\$)\s?\d[\d,.]*[^.\n]{0,40}?\b(?:saved|savings?)\b", re.I), "roi_model"),
 )
 
 
@@ -69,6 +87,19 @@ class ClaimVerdict:
 
 def _evidence() -> dict:
     return json.loads(EVIDENCE.read_text(encoding="utf-8"))["claims"]
+
+
+def _framed(text: str, entry: dict) -> bool:
+    """True when the ad carries one of the entry's allowed framing phrases.
+
+    Only entries that explicitly list `allowed_if_framed_as` can ever pass this
+    way. An UNVERIFIED entry without that list stays blocked no matter what the
+    ad says around it, so this does not loosen hours_saved, customer_count or
+    percentage_claim.
+    """
+    phrases = entry.get("allowed_if_framed_as") or []
+    low = text.lower()
+    return any(ph.lower() in low for ph in phrases)
 
 
 def check(text: str) -> ClaimVerdict:
@@ -86,6 +117,12 @@ def check(text: str) -> ClaimVerdict:
                 f"{match.group(0)!r} asserts {claim_id!r}, absent from claims/evidence.json"
             )
         elif entry.get("status") != "verified":
+            if _framed(text, entry):
+                # Dovy's rule of 2026-09-06: a modelled figure may appear only
+                # when the same ad says, in words, that it is a model or a
+                # worked example. That framing phrase has to be in the ad
+                # itself, not in a note, because the reader never sees notes.
+                continue
             failures.append(f"{match.group(0)!r} -> {claim_id} UNVERIFIED. {entry.get('note','')}")
 
     return ClaimVerdict(not failures, tuple(failures))

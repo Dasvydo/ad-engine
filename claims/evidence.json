@@ -63,13 +63,87 @@
       "status": "UNVERIFIED",
       "evidence": "No measured customer outcome exists. The campaign landing page renders '430 USD saved per month, for each person' - that figure is assumed hours at a mid-level salary, converted from euros, and the page says so in the same block ('These are a model, not a measurement' / 'Never yet checked against a real customer').",
       "safe_phrasings": [],
-      "note": "Do NOT echo the landing page's money figure into an ad. The page carries its own disclosure in the same eyeline; an ad carries none, and a figure lifted out of its disclosure is exactly the unbacked public promise an investor warned about. See docs/FUNNEL-HANDOFF.md."
+      "note": "Do NOT echo the landing page's money figure into an ad. The page carries its own disclosure in the same eyeline; an ad carries none, and a figure lifted out of its disclosure is exactly the unbacked public promise an investor warned about. See docs/FUNNEL-HANDOFF.md. UNIFIED 2026-09-18: this began as a hard block, written before roi_model was visible on claude/campaign-build-status-9j9194. The founder's rule of 2026-09-06 is the one that governs - a modelled figure MAY appear when the same ad says in plain words that it is a model or a worked example, because the reader sees the framing and never sees a note. Two rules on one subject is how one of them gets ignored, so these now share roi_model's escape.",
+      "allowed_if_framed_as": [
+        "worked example",
+        "a model",
+        "our model",
+        "modelled",
+        "modeled",
+        "not a measurement",
+        "not measured"
+      ]
     },
     "roi_multiple": {
       "status": "UNVERIFIED",
       "evidence": "No measured return exists. The landing page computes its multiple at runtime from the modelled saving, a ten-person firm and the active tier price (campaign-site/src/components/Numbers.tsx:98). It is arithmetic over an assumption, not an observation - and it moves whenever the price moves.",
       "safe_phrasings": [],
-      "note": "Covers 'Nx', 'pays for itself' and 'N times over'. Same rule as money_saved: the page may state it with its disclosure attached, an ad may not state it at all."
+      "note": "Covers 'Nx', 'pays for itself' and 'N times over'. Same rule as money_saved: the page may state it with its disclosure attached, an ad may not state it at all. UNIFIED 2026-09-18: this began as a hard block, written before roi_model was visible on claude/campaign-build-status-9j9194. The founder's rule of 2026-09-06 is the one that governs - a modelled figure MAY appear when the same ad says in plain words that it is a model or a worked example, because the reader sees the framing and never sees a note. Two rules on one subject is how one of them gets ignored, so these now share roi_model's escape.",
+      "allowed_if_framed_as": [
+        "worked example",
+        "a model",
+        "our model",
+        "modelled",
+        "modeled",
+        "not a measurement",
+        "not measured"
+      ]
+    },
+    "price": {
+      "status": "verified",
+      "evidence": "Confirmed by Dovy on 2026-09-06: 89 USD per seat per month plus 500 USD one-off setup. Supersedes the 49/99 USD and 750 USD figures that were in docs/ICP-BRIEF.md.",
+      "safe_phrasings": [
+        "89 USD a seat a month",
+        "500 USD one-off setup",
+        "The setup fee covers the workshop and the knowledge base build"
+      ],
+      "_contested": "⚠️ status is `verified` and this entry therefore ALLOWS an ad to state 89 USD a seat a month. That was founder-confirmed on 2026-09-06 and is preserved as recorded. But price is under active revision as of 2026-09-17 - claude/dazzling-goldberg-ui7hnb carries a different model entirely (flat firm price, two packages, flat_firm_price / package_coverage entries). Per-seat and flat-fee cannot both be true. Nobody has reconciled them. Do not put a price in an ad until the founder settles it, whatever this entry permits."
+    },
+    "roi_model": {
+      "status": "UNVERIFIED",
+      "evidence": "Decision 2026-09-06: the ~9x ROI, ~400 EUR per month saved per seat and ~40-day payback figures are outputs of a model, not measurements. The model assumes an amount of time saved per seat and costs it at a salary. No customer has been measured.",
+      "safe_phrasings": [],
+      "allowed_if_framed_as": [
+        "worked example",
+        "a model",
+        "our model",
+        "modelled",
+        "modeled",
+        "not a measurement",
+        "not measured"
+      ],
+      "note": "An ROI multiple, a payback period or a money-saved figure may appear in an ad ONLY if the same ad says in plain words that it is a model or a worked example. Never present it as an outcome. If the ad does not carry one of the framing phrases in allowed_if_framed_as, the gate blocks it."
     }
-  }
+  },
+  "_decisions": [
+    {
+      "date": "2026-09-06",
+      "by": "Dovy",
+      "topic": "ROI figures",
+      "decision": "The ROI figures (~9x ROI, ~400 EUR per month saved per seat, ~40-day payback) are MODELLED, not measured. They come from a model that assumes time saved and costs it at a salary. No measured customer outcome exists. Status for ad use stays UNVERIFIED. They may appear in an ad ONLY if the ad itself says they are a model or a worked example, never as an outcome. This confirms the gate's original call in BLOCKED.md entry 3.",
+      "applies_to": [
+        "roi_model",
+        "hours_saved",
+        "percentage_claim"
+      ]
+    },
+    {
+      "date": "2026-09-06",
+      "by": "Dovy",
+      "topic": "Price and destination",
+      "decision": "Canonical price is 89 USD per seat per month plus 500 USD one-off setup. Canonical destination is teams.doviloop.dev. docs/ICP-BRIEF.md and the two pre-campaign arms were updated to match.",
+      "applies_to": [
+        "price"
+      ]
+    },
+    {
+      "date": "2026-09-14",
+      "by": "Claude, session A+E",
+      "topic": "Destination, superseding the 2026-09-06 entry",
+      "decision": "Canonical destination is https://campaign-site-azure.vercel.app/. The 2026-09-06 entry above named teams.doviloop.dev; that subdomain was never stood up as the campaign page. It resolves, answers, and 301s to https://www.doviloop.dev/ - the product home page. The price half of the 2026-09-06 decision is untouched and still stands.",
+      "evidence": "curl -sIL https://teams.doviloop.dev/ -> HTTP/2 301, location: http://doviloop.dev -> 308 -> https://www.doviloop.dev/ 200. Measured 2026-09-14. https://campaign-site-azure.vercel.app/?utm_... returns 200 with the query string intact, so attribution survives the landing.",
+      "why_it_mattered": "An ad pointed at teams.doviloop.dev would have looked healthy - 200 at the end of the chain - while sending every paid click to a page with no qualifier, no lead form and none of this campaign's instrumentation. Six creative destinations, creative/hours.json, creative/capacity.json, the Ads Manager paste sheet in campaigns/structure.md and two audience definitions all carried it. A test asserted it.",
+      "reversible": "Yes. If the subdomain is repointed at the campaign site, change ORIGIN in tests/test_copy.py and the six destination fields."
+    }
+  ]
 }
