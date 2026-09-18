@@ -323,6 +323,75 @@ ten-person firm and the active tier price. It never appears as a literal in any
 content file, so `--landing` cannot report it and never will. It is on the page
 regardless. Treat `roi_multiple` as live whether or not a scan mentions it.
 
+## The live campaign — why it is shaped the way it is
+
+Recovered 2026-09-18 from the retired `claude/confident-ritchie-ggzjjm` handoff,
+which this file replaced. Everything below existed only there and would have been
+lost with it. Two items qualify decisions recorded above.
+
+### Why the objective is Traffic and not Leads
+
+`OUTCOME_LEADS` needs roughly **50 conversion events per ad set per week** to leave
+Meta's learning phase. This account will produce single digits. Meta would never
+optimise — it would spend, and report noise as signal.
+
+`LINK_CLICKS` is the honest goal at this volume. **`LANDING_PAGE_VIEWS` is better
+quality and needs the pixel**, so switch to it once the pixel is live and
+collecting. Nothing else about the ad set changes.
+
+Meta forbids changing a campaign's objective, which is why the Awareness pair was
+rebuilt rather than edited.
+
+### ⚠️ Frequency capping was lost in that switch — and it comes back
+
+Frequency capping is a Reach-objective feature. Dropping it was right for the
+campaign that exists: on broad DK+LT geo the pool is millions and frequency is not
+the binding constraint.
+
+**It stops being right the moment the outreach ad set is built.** That audience is
+~2,000 people (see the decision above), where saturation is days away, and
+`OUTCOME_TRAFFIC` gives no frequency cap at all. **Frequency becomes the primary
+metric for that ad set, and the current campaign cannot enforce one.** Plan for a
+separate campaign rather than assuming the combined ad set can live in this one.
+
+### ⚠️ The outreach list does not exist yet
+
+This is the largest gap between the plan and reality, and nothing else in this file
+says it.
+
+`outreach-engine` can **gate and export** a list. It cannot **produce** one.
+`segments/` holds three example rows with fake domains, `queue/*.csv` is gitignored,
+and the Lithuanian registry fetchers are deliberately unimplemented.
+
+So the priority-1 audience — and the one-combined-English-ad-set decision made for
+it — **is not actionable today**. The decision stands; it has nothing to run on.
+This is also why the live campaign is broad-interest practice rather than ICP
+targeting, which is a much smaller claim than "the ads are live".
+
+### A pixel cannot lawfully go on `doviloop.dev` yet
+
+`docs/BUSINESS-MANAGER-WALKTHROUGH.md` §8 has this in full, and it **contradicts
+the "put the same pixel ID on both sites" line elsewhere in this repo**: the product
+site has no consent mechanism at all, while already running RB2B (`index.html:31-32`)
+and PostHog with cookies, autocapture and session recording on, to a **US** host.
+That is pre-existing GDPR exposure. Adding a pixel adds to it.
+
+Roughly a day of work: port `consent.ts` and `pixel.ts`, rebuild the notice on the
+product site's stack in three languages, gate RB2B and PostHog, widen the CSP, add a
+privacy-policy paragraph naming Meta. **The part that is not code** — every
+declining visitor disappears from your own analytics, session recordings included —
+is a business decision, not a refactor.
+
+### One more reason the domain comes before the pixel
+
+`revokeMetaPixel` (`campaign-site/src/lib/pixel.ts`) computes the cookie parent
+domain from the last two labels of the hostname. On `campaign-site-azure.vercel.app`
+that is `.vercel.app`, a public suffix, which browsers reject — so **consent
+withdrawal may fail to clear `_fbp` on the current host**. On `teams.doviloop.dev`
+it resolves to `.doviloop.dev` and is correct. Turning the pixel on before the
+cutover would run it on the one host where withdrawal is broken.
+**Unverified — needs a live check once a pixel ID exists.**
+
 ## Still founder-only, unchanged
 
 - ~~Create the Facebook Page.~~ **Done — it already existed.** Read live 2026-09-18:
