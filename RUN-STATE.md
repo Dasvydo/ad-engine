@@ -1,6 +1,6 @@
 # Run state: ads research loop
 Started: 2026-09-18
-Last updated: 2026-09-18
+Last updated: 2026-09-19
 Status: executing
 Domain profile: software
 
@@ -54,10 +54,10 @@ which a native speaker signs off and a model never claims to have written.
 |----|-------|------|--------|----------|---------|-------------|------|
 | T1 | Scope the reel loop re-applied to ads | 0 | verified | 1 | PASS | e9cfa60 | docs/AD-RESEARCH-SCOPE.md |
 | T2 | Fix the build contracts and the skeleton | 0 | landed | 1 | - | e168b98 | docs/CONTRACTS.md, requirements.txt, pytest.ini |
-| T3 | Model provider and the test stub | 1 | landed | 1 | - | 1581594 | engine/model.py, tests/stubs.py |
+| T3 | Model provider and the test stub | 1 | verified | 2 | PARTIAL to PASS | 1581594 | engine/model.py, tests/stubs.py |
 | T4 | Corpus store, one file per analysed ad | 1 | verified | 1 | PASS | 1581594 | engine/corpus.py |
-| T5 | Segment backlog and its sync tool | 1 | landed | 1 | - | 1581594 | engine/backlog.py, tools/sync_backlog.py |
-| T6 | Meta token, aged and refused past sixty days | 1 | landed | 1 | - | 1581594 | engine/oauth.py |
+| T5 | Segment backlog and its sync tool | 1 | verified | 2 | PARTIAL to PASS | 1581594 | engine/backlog.py, tools/sync_backlog.py |
+| T6 | Meta token, aged and refused past sixty days | 1 | verified | 2 | PARTIAL to PASS | 1581594 | engine/oauth.py |
 | T7 | Ad Library discovery behind a quota ledger | 1 | verified | 1 | PASS | 1581594 | engine/discover.py, research/seeds.yaml |
 | T8 | Claims gate, attestations and the offers table | 1 | verified | 1 | PASS | 1581594 | engine/gate.py, claims/evidence.json |
 | T9 | Batched analysis, twelve ads to a call | 2 | verified | 1 | PASS | 1581594 | engine/analyse.py |
@@ -74,13 +74,13 @@ which a native speaker signs off and a model never claims to have written.
 | T20 | README, cost ledger, secrets | 5 | verified | 2 | PARTIAL to PASS | 1e32872, 4a4ff5d | README.md, docs/COST.md, docs/SECRETS.md |
 | T21 | End-to-end pipeline test | 6 | verified | 1 | PASS | 4a4ff5d | tests/test_pipeline.py |
 | T22 | Seam audit and the fixes it confirmed | 6 | verified | 1 | PASS | 4a4ff5d | (cross-cutting) |
-| T23 | GitHub setup: labels, secrets, variables, $0 limit | 7 | held on Dovy - about 20 minutes in repository settings | 0 | - | four labels, three secrets, one variable | (GitHub settings) |
+| T23 | GitHub setup: labels, secrets, variables, $0 limit | 7 | held on Dovy - now one script, `bash tools/setup_github.sh` | 0 | - | four labels, three secrets, one variable | (GitHub settings) |
 | T24 | Meta identity verification and an Ad Library token | 7 | held on Dovy - a government id, then one to three business days | 0 | - | META_ACCESS_TOKEN, META_TOKEN_ISSUED | (Meta developer app) |
-| T25 | Page ids for the seed file | 7 | held on Dovy - about 30 minutes reading ids out of the Ad Library UI | 0 | - | research/seeds.yaml pages | research/seeds.yaml |
-| T26 | Read the Ad Library API terms, settle what the corpus stores | 7 | held on Dovy - decision 6 in the scope | 0 | - | a decision recorded in the scope | docs/AD-RESEARCH-SCOPE.md |
+| T25 | Page ids for the seed file | 7 | verified | 1 | PASS | 2ff3510 - thirteen ids, each read off a live response | research/seeds.yaml |
+| T26 | Read the Ad Library API terms, settle what the corpus stores | 7 | held on Dovy - the terms page refuses automated fetch; a safe default is already in the code and in docs/GETTING-LIVE.md | 0 | - | a decision recorded in the scope | docs/AD-RESEARCH-SCOPE.md |
 | T27 | A read-only token for our own ad account | 7 | held on Dovy - and check whether a System User token avoids the sixty-day clock | 0 | - | the measure half of META_ACCESS_TOKEN | (Meta business settings) |
 | T28 | Native Danish and Lithuanian proofread | 7 | held on Dovy - every da and lt field ships as NEEDS_NATIVE_PROOFREAD | 0 | - | signed-off copy | creative/ |
-| T29 | First live ads_archive call: confirm the field set | 8 | blocked on T24 | 0 | - | the TODO(integration) block in discover closed or corrected | engine/discover.py |
+| T29 | First live ads_archive call: confirm the field set | 8 | blocked on T24 - now one command, `python tools/first_live_call.py` | 0 | - | the TODO(integration) block in discover closed or corrected | engine/discover.py |
 | T30 | First live sweep: a real corpus and real patterns | 8 | blocked on T24, T25 | 0 | - | research/corpus/, research/patterns.json | research/ |
 | T31 | First live insights call: confirm the field names | 8 | blocked on T27 | 0 | - | the TODO(integration) block in measure closed or corrected | engine/measure.py |
 | T32 | Re-band learn's edges against the real corpus | 9 | blocked on T30 | 0 | - | corrected LENGTH/LONGEVITY/CTR edges | engine/learn.py |
@@ -130,7 +130,9 @@ which a native speaker signs off and a model never claims to have written.
 | T16 | 2 | PARTIAL to PASS | The reel sidecar took its aspect from the concept, not the approved job, so --placement moved the ad and not its creative | Sidecar now built from the gated job |
 | T19 | 2 | PARTIAL to PASS | build.yml published a selection path then re-derived it in shell; two tests matched pinned numbers against the comments naming them | Path consumed and path traversal refused; tests read the command, proved by mutating both workflows |
 | T20 | 2 | PARTIAL to PASS | SECRETS omitted build.yml for the model key; META_GRAPH_VERSION was documented as a variable no workflow passed | Both corrected; a test fails if either Graph step stops mapping the variable |
-| T3, T5, T6 | 1 | LANDED, NOT VERIFIED | No seam audit read these three. Their own suites pass - 77, 36 and 73 tests - but nobody independent has checked them | See the risk note below |
+| T3, T5, T6 | 2 | PARTIAL to PASS | An independent audit on 2026-09-19 exercised all three rather than reading them. Verdicts: model PARTIAL, backlog PARTIAL, oauth PARTIAL on correctness and **FAIL on leak-safety** | Fixed and hardened; suites now 114, 53 and 213 tests |
+| discover | 1 | **LEAK, FIXED** | Found while auditing oauth, in a module that was not being audited: a local copy of the token redaction cut whole values only, while this module truncates Meta's body itself - so our own truncation sliced a ~200-character token into a fragment the copy could not match. 116 characters to stderr, 40 into a committed file | One definition of the cut now, in engine/oauth.py, delegated to. Nine tests, five red against the pre-fix code |
+| T5 | 2 | paired fix | The parser silently DROPPED a half-piped row and accepted a blank segment id as the top-ranked candidate. Both needed the change in reel-engine first, since CONTRACTS.md requires the module byte-identical | reel-engine 07535ee, copied here. Two strict xfails are now passing tests |
 
 **Objective check, run at 4a4ff5d:** `python -m pytest -q` - 1,618 passed, no key,
 no token, no socket. Clean working tree, local and remote at the same commit.
