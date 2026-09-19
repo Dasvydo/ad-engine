@@ -1,0 +1,27 @@
+{
+  "id": "voice",
+  "framing": "voice",
+  "hypothesis": "Meet the competitor where it is betting. MEASURED 2026-09-19: Echo You's sixteen-hook launch includes 'AI-svar, der lyder som dig' - AI replies that sound like you - so a funded competitor is spending on the voice angle in our market. per_person_voice is verified in claims/evidence.json. The difference worth owning is PER MAILBOX: their line is addressed to the owner, and a client emailing a junior bookkeeper does not want the owner's voice back. UNTESTED.",
+  "primary_text": {
+    "en": "An assistant that writes like the founder is no use when the client emailed a junior bookkeeper.\n\nDoviLoop builds a voice profile for every mailbox from that person's own sent mail, then drafts the reply there - grounded in your documents, not the internet.\n\nNothing sends until they read it. It never leaves Outlook.",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "headline": {
+    "en": "In each person's own words",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "description": {
+    "en": "Drafted in the Outlook your team already uses",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "cta": "LEARN_MORE",
+  "destination": "https://doviloop.dev",
+  "creative_source": {
+    "_note": "reel-engine renders these. Reuse rather than commissioning new video.",
+    "video": "reel-engine: content/accountants.json",
+    "still": "reel-engine: --still frame from the same job"
+  }
+}

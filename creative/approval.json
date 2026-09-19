@@ -1,0 +1,27 @@
+{
+  "id": "approval",
+  "framing": "approval",
+  "hypothesis": "The fear, not the feature. MEASURED 2026-09-19: Echo You - the only direct competitor running in DK - launched SIXTEEN hooks in one minute on 2026-09-16, and not one of them answers 'will it send something wrong to my client'. Dinero, the DK incumbent, proves objection-first ads run here: it keeps 'Skift regnskab - ogsaa hvis du har forudbetalt' and 'Vi flytter dit regnskab for dig' live. never_auto_sends is verified in claims/evidence.json, so this is the one thing we can say flatly that the competitor is not saying at all. UNTESTED.",
+  "primary_text": {
+    "en": "Your team already knows the answer to most client emails. What a service costs, when the deadline falls, which papers you need before filing.\n\nDoviLoop reads your own fee schedule, deadlines and policies and puts the reply in each person's Outlook drafts, in their own words.\n\nNothing sends until they read it. Your data stays in Europe.",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "headline": {
+    "en": "Nothing sends until you read it",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "description": {
+    "en": "AI drafts for accounting and bookkeeping firms",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "cta": "LEARN_MORE",
+  "destination": "https://doviloop.dev",
+  "creative_source": {
+    "_note": "reel-engine renders these. Reuse rather than commissioning new video.",
+    "video": "reel-engine: content/accountants.json",
+    "still": "reel-engine: --still frame from the same job"
+  }
+}

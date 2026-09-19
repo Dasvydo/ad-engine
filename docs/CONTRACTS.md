@@ -605,7 +605,7 @@ Nothing from `docs/ICP-BRIEF.md` is read. The writer stamps `da` and `lt` to
 
 `reel-engine/engine/fanout.py` with `discover.AdLibraryClient` in place of the
 YouTube client, `analyse.analyse_all` (batched), `--max-ads` in place of
-`--max-videos` (default 24: two text batches), the cost ledger counting
+`--max-videos` (default 12: one text batch), the cost ledger counting
 `model_calls` and `ad_library_calls`, and the report at
 `research/selection.json`. `plan()` is `--dry-run`. Candidates already in the
 corpus are never analysed twice; fresh ones are ranked by `outlier_ratio` then

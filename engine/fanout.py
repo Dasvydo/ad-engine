@@ -64,12 +64,21 @@ DEFAULT_REPORT = ROOT / "research" / "selection.json"
 
 SCHEMA = 1
 
-# How many ads one weekly run is allowed to analyse. Twenty-four is exactly two
-# text batches of analyse.BATCH_SIZE, so a research Monday with nothing
-# hand-saved costs 2 + 1 (concepts) + 1 (editorial) = 4 of the 20 daily calls
-# the free tier allows per model, and leaves room for the propose runs on the
-# same key. Raise it only with docs/COST.md open.
-DEFAULT_MAX_ADS = 24
+# How many ads one weekly run is allowed to analyse.
+#
+# TWELVE is exactly ONE text batch of analyse.BATCH_SIZE, so a research Monday
+# with nothing hand-saved costs 1 + 1 (concepts) + 1 (editorial) = 3 of the 20
+# daily calls the free tier allows per model - leaving 17 for the propose runs
+# that fire on the same key three hours later.
+#
+# It was 24 (two batches, 4 calls). Twelve is the cheaper half of a deliberate
+# trade: fanout._rank_key sorts by outlier ratio and then by days running, so
+# the twelve that survive the cut are the twelve best-performing ads of the
+# sweep, and the thirteenth was never going to teach the corpus much that the
+# twelfth did not. A week that genuinely wants depth passes --max-ads by hand;
+# the default is for the unattended Monday, where cheap and best-first beats
+# thorough. Raise it only with docs/COST.md open.
+DEFAULT_MAX_ADS = 12
 
 # The two ledgers the report keeps. `model_calls` is what docs/COST.md prices
 # against the free tier; `ad_library_calls` is engine.discover's own ledger,

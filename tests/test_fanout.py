@@ -394,7 +394,10 @@ def test_the_contract_constants():
     assert fanout.SCHEMA == 1
     assert fanout.DEFAULT_REPORT == ROOT / "research" / "selection.json"
     # Two text batches, exactly: the default is the batch size's, not its own.
-    assert fanout.DEFAULT_MAX_ADS == 24 == 2 * analyse.BATCH_SIZE
+    # ONE text batch, not two. Twelve best-performing ads a week costs 3 of
+    # the 20 daily model calls instead of 4, and leaves 17 for the propose
+    # runs that fire on the same key. See the constant for the trade.
+    assert fanout.DEFAULT_MAX_ADS == 12 == analyse.BATCH_SIZE
     assert fanout.COST_KEYS == ("model_calls", "ad_library_calls")
 
 
@@ -1142,10 +1145,10 @@ def test_the_dry_run_prices_the_run_before_it_happens(repo):
     assert report.estimate["ad_library_calls"] == 2 * discover.DEFAULT_MAX_PAGES
     assert report.estimate["max_pages"] == discover.DEFAULT_MAX_PAGES
     assert report.estimate["budget"] == 50
-    # Twenty-four ads with nothing hand-saved is two text batches, plus the
-    # concepts call and the editorial call.
+    # Twelve ads with nothing hand-saved is ONE text batch, plus the concepts
+    # call and the editorial call.
     assert report.estimate["max_ads"] == fanout.DEFAULT_MAX_ADS
-    assert report.estimate["model_calls"] == 2 + 2
+    assert report.estimate["model_calls"] == 1 + 2
     assert report.counts["segments"] == 4
     assert report.counts["seed_pages"] == 1
     assert report.counts["seed_queries"] == 1
@@ -1167,8 +1170,8 @@ def test_the_model_call_ceiling_counts_hand_saved_creatives(repo):
     report = plan_with(repo)
 
     assert report.counts["creatives"] == 3
-    # 3 media calls + ceil(21 / 12) = 2 batches + concepts + editorial.
-    assert report.estimate["model_calls"] == 3 + 2 + 2
+    # 3 media calls + ceil((12 - 3) / 12) = 1 batch + concepts + editorial.
+    assert report.estimate["model_calls"] == 3 + 1 + 2
 
     capped = plan_with(repo, max_ads=2)
     assert capped.estimate["model_calls"] == 2 + 0 + 2
@@ -1207,7 +1210,8 @@ def test_the_shipped_seeds_file_prices_under_the_workflow_budget():
     # allowance - is what is pinned.
     assert estimate["ad_library_calls"] * 2 < discover.HOURLY_BUDGET_CALLS
     assert estimate["ad_library_calls"] < 150
-    assert estimate["model_calls"] == 4
+    # 1 analysis batch + concepts + editorial, with nothing hand-saved.
+    assert estimate["model_calls"] == 3
 
 
 def test_the_dry_run_names_that_no_competitor_is_watched(repo):
@@ -1302,8 +1306,9 @@ def test_the_dry_run_summary_prices_in_ad_library_calls(repo):
     assert summary.startswith("research preflight %s: ok" % STAMP)
     assert "seeds ask for 1 page search(es) over 1 seeded page(s) and 1 quer(ies)" in summary
     assert "0 corpus record(s), 0 pattern(s), 4 segment(s), 0 hand-saved creative(s)" in summary
-    assert "analyse up to 24 ad(s), write 12 concept(s), select 3" in summary
-    assert "spend up to 4 model call(s) and 4 of %d Ad Library call(s)" % (
+    assert ("analyse up to %d ad(s), write 12 concept(s), select 3"
+            % fanout.DEFAULT_MAX_ADS) in summary
+    assert "spend up to 3 model call(s) and 4 of %d Ad Library call(s)" % (
         discover.HOURLY_BUDGET_CALLS
     ) in summary
 
@@ -1453,7 +1458,7 @@ def test_the_cli_defaults_are_the_contract_defaults(repo, live, capsys):
     document = json.loads(out)
 
     assert code == 0
-    assert document["estimate"]["max_ads"] == 24
+    assert document["estimate"]["max_ads"] == fanout.DEFAULT_MAX_ADS == 12
     assert document["estimate"]["budget"] == discover.HOURLY_BUDGET_CALLS
     assert len(document["concepts"]) == concepts.DEFAULT_N
     assert len(document["selected"]) == score.TOP_N
