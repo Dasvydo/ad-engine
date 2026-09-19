@@ -1,0 +1,374 @@
+name: propose
+
+# 2 per week, the cadence in the design, plus on demand.
+#
+# WHERE THE CONCEPTS COME FROM
+#
+# research.yml runs at 06:00 on Monday and commits research/selection.json,
+# the concepts that week's sweep selected. This job runs at 09:00 and writes
+# the copy for them. Wired here, in propose, rather than by having research.yml
+# carry on into proposing - three reasons, in order of what they cost to get
+# wrong:
+#
+#   1. Least privilege. research.yml holds `contents: write` and nothing else,
+#      and tests/test_workflows.py pins that deliberately. Opening an approval
+#      issue needs `issues: write`, so the single-workflow version would widen
+#      the permissions of the one job that makes model calls on a stranger's
+#      ad copy. Reading a committed file needs no permission at all.
+#   2. Blast radius. A sweep that dies at the last analysis batch would take
+#      the proposals with it. Two runs mean a bad research week leaves last
+#      week's report in place and this job writes from it.
+#   3. The handoff already existed. The 06:00/09:00 gap was designed as the
+#      ordering for exactly this, with three hours of headroom.
+#
+# The backlog path is what runs when there is no report on disk - a fresh
+# checkout, a week whose research was a dry run, an operator naming a segment
+# by hand. The report is a preference, never a requirement.
+# `ignore_selection` forces the backlog on demand when a report exists but is
+# stale.
+#
+# NO BROWSER HERE. reel-engine's copy of this file shoots the still the
+# approval issue shows and pays for a Chromium download every run to do it.
+# Nothing in this repository renders: the creative is shot in build.yml, inside
+# a checkout of reel-engine, and only after a human has approved the copy. So
+# the issue this job opens carries the copy alone, `approval open` is called
+# without --still-url, and the frame arrives on the issue one tap later.
+#
+# Note: this begins firing the moment it lands on the default branch. Run the
+# workflow_dispatch path end to end once before trusting the schedule - see
+# docs/SECRETS.md.
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+    - cron: "0 9 * * 4"
+  workflow_dispatch:
+    inputs:
+      segment:
+        description: "segment id to propose; blank picks the next unused"
+        required: false
+        default: ""
+      ignore_selection:
+        description: "propose from queue/backlog.md even if a selection report exists"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: propose
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    # One concept is one writing call plus one editorial gate call, and
+    # engine/model.py's retry ladder can hold either for ~65s before it
+    # answers. --retries 2 allows two rewrites each, so three concepts is up to
+    # nine writing calls and nine gate calls in the worst case. docs/COST.md
+    # ESTIMATES ~5 minutes a run; 30 is ~6x that and still 1.5% of the
+    # 2,000-minute month.
+    #
+    # What a timeout costs here is worse than it looks: the commit step never
+    # runs, so a job killed at the cap discards concepts that already passed
+    # the gate along with the runner.
+    timeout-minutes: 30
+    steps:
+      # First, so the stamp covers the install too. This job fires unattended
+      # on a cron, so it is where an unnoticed drift in minute consumption
+      # would show up first; the last step turns it into a number in the run
+      # summary instead of an estimate. See docs/COST.md.
+      - name: Stamp the start time
+        run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - name: Require GEMINI_API_KEY
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::GEMINI_API_KEY is not set."
+            echo "::error::propose writes the ad copy with gemini-3.6-flash and"
+            echo "::error::gates it with gemini-3.5-flash - one key, two models."
+            echo "::error::Without it there is nothing to propose, so this fails"
+            echo "::error::rather than skips."
+            echo "::error::Mint a free key at aistudio.google.com and add it"
+            echo "::error::under Settings > Secrets and variables > Actions."
+            echo "::error::See docs/SECRETS.md."
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # No `playwright install`: see the header. The still is shot in build.yml
+      # inside the reel-engine checkout, after the copy has been approved.
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Propose the selected concepts, or the next unused backlog row
+        id: propose
+        # A selection run writes three jobs, so partial failure is the ordinary
+        # case rather than the exotic one: one concept whose rewrite never
+        # passes the claims gate must not discard the two that did. The module
+        # returns the worst exit code of the three, so the failure is recorded
+        # here and re-raised further down, AFTER whatever succeeded has been
+        # committed and has its issue. The same rule research.yml and
+        # measure.yml follow: a nonzero exit means "not everything worked",
+        # never "nothing worked".
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SEGMENT: ${{ inputs.segment }}
+          IGNORE_SELECTION: ${{ inputs.ignore_selection }}
+        run: |
+          set -euo pipefail
+          ids="$RUNNER_TEMP/segments"
+          : > "$ids"
+          # --retries 2, not the module's default of 1.
+          #
+          # The gate is four editorial rules and it refuses a draft for any of
+          # them. A rewrite carries the failures back in as feedback, so
+          # attempt two is the first one that knows what it got wrong - and the
+          # default would let that be the last. Three attempts means a draft
+          # that fixes two objections and trips a third still has somewhere to
+          # go. The cost is two free Gemini calls per concept per round,
+          # against this job's timeout rather than against a quota: the ceiling
+          # here is minutes. Raise it only with that cap in hand.
+          args=(--retries 2 --id-file "$ids")
+
+          # Three ways in, in priority order, each a narrower statement of
+          # intent than the one below it:
+          #
+          #   --segment         an operator named a row. Never second-guessed.
+          #   ignore_selection  an operator wants the backlog despite a report.
+          #   --from-selection  the scheduled path: every concept the 06:00
+          #                     research run selected, one job each.
+          #   (neither)         no report on disk - the next unused row of
+          #                     queue/backlog.md.
+          #
+          # engine/propose.py resolves each concept to its own backlog row via
+          # the concept's `segment` field, so a selection-driven job is an
+          # ordinary job in every respect except which row it writes for.
+          if [ -n "${SEGMENT:-}" ]; then
+            args+=(--segment "$SEGMENT")
+          elif [ "${IGNORE_SELECTION:-false}" = "true" ]; then
+            echo "::notice::ignore_selection was set: this run takes the next"
+            echo "::notice::unused row of queue/backlog.md and does not read"
+            echo "::notice::research/selection.json."
+          elif [ -f research/selection.json ]; then
+            args+=(--from-selection)
+          else
+            echo "::notice::No research/selection.json on disk, so this run"
+            echo "::notice::takes the next unused row of queue/backlog.md. Run"
+            echo "::notice::the research workflow to have the weekly sweep"
+            echo "::notice::choose what gets proposed."
+          fi
+
+          # The exit code is captured rather than allowed to end the step, so
+          # the id file is always counted: the steps below key off how many
+          # jobs exist, not off whether every concept made it.
+          rc=0
+          # Teed, so the reasoning survives into a file the last step can
+          # print. The Actions log API serves only a run's tail, and the echoed
+          # bodies of the steps below fill it.
+          python -m engine.propose "${args[@]}" 2>&1 \
+            | tee "$RUNNER_TEMP/propose.txt" || rc=${PIPESTATUS[0]}
+
+          # One line per FILED job, in the selection report's order, and no
+          # trailing newline on the last. Nothing proposed leaves the file
+          # untouched - an exhausted backlog exits 0 without writing one, and a
+          # concept that failed contributes no line - so `-s` is the test, and
+          # a zero count is what skips the steps below rather than committing
+          # nothing and failing on an empty `git commit`. Truncated above
+          # before the call, so a count can never be inherited from anywhere
+          # but this run. `grep -c` prints 0 and exits 1 when it matches
+          # nothing, which is why it needs the `|| true` under `set -e`.
+          count=0
+          if [ -s "$ids" ]; then
+            count=$(grep -c . "$ids" || true)
+          fi
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" = "0" ]; then
+            echo "::notice::Nothing proposed. Every candidate segment already"
+            echo "::notice::has a live job. Add a row to queue/backlog.md (in"
+            echo "::notice::reel-engine, then run tools/sync_backlog.py), or"
+            echo "::notice::re-run research, to propose again."
+          fi
+          exit "$rc"
+
+      # Before any issue is opened, not after. The issue invites a human to tap
+      # `go` on a job file; a tap that landed on a file only this runner had
+      # would advance a stage that does not exist anywhere else. One commit for
+      # the whole run, so the history has one entry per run rather than one per
+      # concept.
+      - name: Commit the jobs
+        id: commit
+        env:
+          COUNT: ${{ steps.propose.outputs.count }}
+        # NOT conditional on anything having proposed. A run where every
+        # concept fails the gate still produces something worth keeping: the
+        # drafts in queue/rejected/ and the reasons they were refused for,
+        # whose printed evidence_key hashes that exact wording.
+        if: always()
+        run: |
+          set -euo pipefail
+          ids="$RUNNER_TEMP/segments"
+          git config user.name "doviloop-engine"
+          git config user.email "engine@doviloop.invalid"
+          # WHAT GETS STAGED DEPENDS ON WHETHER ANYTHING PROPOSED, and the
+          # distinction is not cosmetic. engine/propose.py writes a draft into
+          # queue/proposed/ and MOVES it to queue/rejected/ when the gate
+          # refuses it structurally. A run killed between those two - a 503 on
+          # the next concept, a timeout, a cancelled job - leaves a refused
+          # draft sitting in proposed/, which is the directory that means
+          # "gated, and waiting for a human to tap go". `git add queue` would
+          # commit exactly that, as though it had passed; the next run would
+          # read the segment as used, and an approval issue on it would offer
+          # somebody copy the gate had already rejected.
+          #
+          # So on a run where nothing proposed, only queue/rejected/ is staged.
+          # Anything in proposed/ at that moment is mid-flight state, not a
+          # result.
+          if [ "${COUNT:-0}" = "0" ]; then
+            git add queue/rejected
+          else
+            git add queue
+          fi
+          # Nothing staged means nothing was written at all - not even a
+          # rejected draft - so there is no commit to make and that is not a
+          # failure. The step below still re-raises if a concept was refused.
+          if git diff --cached --quiet; then
+            echo "::notice::Nothing under queue/ to commit: this run wrote"
+            echo "::notice::neither a proposed job nor a rejected draft."
+            exit 0
+          fi
+          # The subject names every segment in the run; the id file is one per
+          # line, so `tr` folds it onto the subject line. On a run where every
+          # concept was refused the file is absent, and the subject says so
+          # rather than committing under a blank name.
+          if [ -s "$ids" ]; then
+            subject=$(tr '\n' ' ' < "$ids" | sed 's/[[:space:]]\{1,\}/ /g; s/ $//')
+            git commit -m "propose: $subject"
+          else
+            git commit -m "propose: nothing passed the gate; drafts and reasons only"
+          fi
+          # Pushes, with a rebase-and-retry, so a run that loses a race to the
+          # branch is not thrown away. The script says which day that cost a
+          # completed research sweep.
+          bash tools/push_with_retry.sh
+
+      # One issue per proposed job, which is what makes the selected concepts
+      # reachable: three concepts are three approvals, each tapped `go` or `no`
+      # on its own. A backlog run writes exactly one line, so this is the
+      # single-issue path with a loop of one.
+      - name: Open one approval issue per proposed job
+        if: steps.propose.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Not `set -e`: an issue that fails to open must not strand the
+          # concepts queued behind it, whose jobs are already committed. Every
+          # segment gets its attempt, the failures are named, and the job goes
+          # red at the end.
+          set -uo pipefail
+          ids="$RUNNER_TEMP/segments"
+          failed=""
+          # `|| [ -n "$segment" ]` because the last line can arrive without a
+          # trailing newline and `read` returns false on it. A one-concept run
+          # is exactly that case, so without this the single-proposal path
+          # would open no issue at all.
+          while IFS= read -r segment || [ -n "$segment" ]; do
+            [ -n "$segment" ] || continue
+            # No --still-url. There is no frame yet: build.yml shoots it after
+            # this issue has been tapped `go`, and comments it on afterwards.
+            # </dev/null so engine.approval cannot read the loop's stdin, which
+            # is the id file being iterated: a child that consumed a line would
+            # silently skip a concept.
+            if python -m engine.approval open --segment "$segment" < /dev/null; then
+              echo "opened the approval issue for $segment"
+            else
+              failed="$failed $segment"
+            fi
+          done < "$ids"
+          if [ -n "$failed" ]; then
+            echo "::error::No approval issue was opened for:$failed"
+            echo "::error::Their jobs are committed under queue/proposed/ and"
+            echo "::error::count as live, so re-running this workflow refuses"
+            echo "::error::them as existing rather than proposing them twice."
+            echo "::error::Open each by hand: python -m engine.approval open"
+            echo "::error::--segment ID"
+            exit 1
+          fi
+
+      # After the commit and the issues, like research.yml's equivalent step
+      # and for the same reason: a concept that could not be written, or whose
+      # rewrites never passed the claims gate, is a failure worth going red
+      # over - but the concepts that DID propose are already committed and
+      # already have their approvals. Failing before them would throw that work
+      # away and leave the week with nothing to tap.
+      - name: Fail if a concept could not be proposed
+        if: steps.propose.outcome == 'failure'
+        run: |
+          echo "::error::At least one concept could not be proposed. The log"
+          echo "::error::above names which and why - a draft that failed the"
+          echo "::error::gate structurally is parked in queue/rejected/ with"
+          echo "::error::its reasons and the evidence_key that attests its"
+          echo "::error::exact wording. Whatever did propose is committed and"
+          echo "::error::has an approval issue open; fix what was named and"
+          echo "::error::re-run."
+          exit 1
+
+      # Second to last, matching research.yml, and for the reason written
+      # there: the Actions log API serves only a run's tail, so a diagnosis
+      # printed earlier is unreachable to anything reading the log rather than
+      # the summary page.
+      - name: Repeat what the run said, where the log tail can reach it
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "=== what engine.propose printed this run ==="
+          if [ -s "$RUNNER_TEMP/propose.txt" ]; then
+            cat "$RUNNER_TEMP/propose.txt"
+          else
+            echo "(engine.propose printed nothing - it did not start, or died"
+            echo " before its first line.)"
+          fi
+          echo "=== drafts this run left behind ==="
+          # Reasons live beside the draft, so listing the directory says
+          # whether there is anything to go and read.
+          ls -1 queue/rejected 2>/dev/null || echo "(queue/rejected is empty)"
+
+      - name: Report the minutes this job used
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+        run: |
+          # An unstamped job is unmeasured, not free. Reporting 0 would quietly
+          # understate the month.
+          if [ -z "${JOB_STARTED:-}" ]; then
+            {
+              echo "### Actions minutes"
+              echo
+              echo "- \`propose\` never stamped a start time, so its cost is unknown."
+              echo "  The job was cancelled before its first step ran."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          elapsed=$(( $(date +%s) - JOB_STARTED ))
+          {
+            echo "### Actions minutes"
+            echo
+            echo "- \`propose\` took $(( elapsed / 60 ))m $(( elapsed % 60 ))s wall clock; status \`$STATUS\`."
+            # Billing rounds each job up to the whole minute, so the billed
+            # figure is the one to add up, not the wall clock.
+            echo "- Billed as $(( (elapsed + 59) / 60 )) minute(s) of the 2,000/month Linux allowance."
+            echo "- Budget and headroom: \`docs/COST.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"

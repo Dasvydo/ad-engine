@@ -1,0 +1,134 @@
+name: reject
+
+# `no`, at either tap. The job leaves queue/ entirely and its segment returns
+# to the backlog by absence; git history holds what was removed.
+#
+# It is NOT parked in queue/rejected/ - that directory means "failed the gate,
+# fix or attest this text", and engine/propose.py is what puts a draft there. A
+# rejected proposal passed the gate and was simply not wanted, so there is
+# nothing to fix and nothing to re-gate.
+#
+# No model call, no browser, no API: two approval calls and a push. This is the
+# cheapest job in the repository and it should stay that way.
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+
+
+jobs:
+  reject:
+    # JOB level, not workflow level, and for the reason build.yml's header
+    # gives at length: every label event starts a run of every label-triggered
+    # workflow, a workflow-level group is acquired by the RUN, and the runs
+    # that were only ever going to skip would then queue in it and cancel each
+    # other. A skipped job never acquires the slot. The group is shared with
+    # build so that a `go` and a `no` on the same issue cannot both be editing
+    # this segment's queue files at once.
+    concurrency:
+      group: ad-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    # Without this, adding `no` would also start a build.
+    if: github.event.label.name == 'no'
+    runs-on: ubuntu-latest
+    # docs/COST.md ESTIMATES ~1 minute: an install, two approval calls and a
+    # push. 10 is ten times that and still 36x under GitHub's 360-minute
+    # default, which is what a hung job would otherwise spend.
+    timeout-minutes: 10
+    steps:
+      # First, so the stamp covers the install - which is nearly all of what
+      # this job spends. See docs/COST.md.
+      - name: Stamp the start time
+        run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      # issues events check out a detached HEAD, so the branch is explicit -
+      # this job pushes.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # No --expect. `no` is accepted at either tap, so the job may be in
+      # queue/proposed/ or queue/built/ and the resolve must not insist on one.
+      # A launched job is refused by `drop` itself, which is where that rule
+      # belongs: an ad that is live in Ads Manager is not rejected by deleting
+      # its file.
+      - name: Resolve the job
+        id: job
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: python -m engine.approval resolve --issue "$ISSUE"
+
+      - name: Drop the job and close the issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+          SEGMENT: ${{ steps.job.outputs.segment }}
+        run: |
+          set -euo pipefail
+          # Removes the job, the still and the reel selection together: three
+          # files that only mean anything as a set.
+          python -m engine.approval drop --segment "$SEGMENT"
+
+          git config user.name "doviloop-engine"
+          git config user.email "engine@doviloop.invalid"
+          git add queue
+          git commit -m "reject: $SEGMENT"
+          # Pushes, with a rebase-and-retry, so a run that loses a race to the
+          # branch is not thrown away. The script says which day that cost a
+          # completed research sweep.
+          bash tools/push_with_retry.sh
+
+          {
+            echo "### Rejected"
+            echo
+            echo "\`$SEGMENT\` is free again: it carries no live job, so the"
+            echo "next research sweep and the next backlog run can both pick"
+            echo "it. The copy is in this repository's history if you want it"
+            echo "back."
+          } > "$RUNNER_TEMP/rejected.md"
+          python -m engine.approval close --issue "$ISSUE" \
+            --comment-file "$RUNNER_TEMP/rejected.md"
+
+      # always(), because a run that dies after the install has still spent the
+      # minutes it spent installing. Plain shell and `date` rather than a
+      # marketplace timing action; two subtractions are not worth a dependency.
+      - name: Report the minutes this job used
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+        run: |
+          # An unstamped job is unmeasured, not free. Reporting 0 would quietly
+          # understate the month.
+          if [ -z "${JOB_STARTED:-}" ]; then
+            {
+              echo "### Actions minutes"
+              echo
+              echo "- \`reject\` never stamped a start time, so its cost is unknown."
+              echo "  The job was cancelled before its first step ran."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          elapsed=$(( $(date +%s) - JOB_STARTED ))
+          {
+            echo "### Actions minutes"
+            echo
+            echo "- \`reject\` took $(( elapsed / 60 ))m $(( elapsed % 60 ))s wall clock; status \`$STATUS\`."
+            # Billing rounds each job up to the whole minute, so the billed
+            # figure is the one to add up, not the wall clock.
+            echo "- Billed as $(( (elapsed + 59) / 60 )) minute(s) of the 2,000/month Linux allowance."
+            echo "- Budget and headroom: \`docs/COST.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"

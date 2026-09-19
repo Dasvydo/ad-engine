@@ -1,0 +1,78 @@
+name: tests
+
+# The suite, on every pull request and every push to the default branch.
+#
+# WHY THIS EXISTS. Every other workflow here is `schedule`, `workflow_dispatch`
+# or `issues`, so without this a pull request would show no checks at all - not
+# pending, not failing, none - and the only thing between a broken commit and
+# the default branch would be whoever last ran pytest by hand. A suite nothing
+# runs is a suite that is already stale; it just has not been told yet.
+#
+# WHAT IT COSTS. Under a minute of install and a few seconds of suite: every
+# test in this repository is offline by construction - no key, no token, no
+# socket - so there is nothing here to wait on. ESTIMATED at ~2 minutes a job
+# against the 2,000-minute month; the figure has not been measured on a runner
+# yet and docs/COST.md says so.
+#
+# WHY IT INSTALLS NO BROWSER, unlike reel-engine's copy of this file. That
+# repository renders reels and pins six golden frames, which cannot be compared
+# without a Chromium - and it pins runs-on by name so the frames are verified on
+# the image that captured them. NOTHING IN THIS REPOSITORY RENDERS. The video
+# and the still are shot by reel-engine, in build.yml, inside a checkout of that
+# repository (which brings its own pinned playwright). There are no golden
+# frames here, so there is no image to pin and no browser to download. Do not
+# add `playwright install` "for consistency": tests/test_workflows.py fails the
+# build if it appears, because it would be pure cost on every pull request.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# read, and nothing else. This job commits nothing, opens no issue and closes
+# none - it reports. tests/test_workflows.py derives "needs contents: write"
+# from whether a file runs a push, so this one is deliberately outside that
+# list rather than granted a permission it would never use.
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    # cancel-in-progress: TRUE, and it is the only workflow here that does.
+    #
+    # Everywhere else the answer is false, for a reason that does not apply to
+    # a test run: a research sweep has already charged Ad Library calls against
+    # the hour and spent model calls that do not come back, and a build may be
+    # most of the way through an encode inside the sibling checkout. Killing
+    # either wastes something real.
+    #
+    # A test run holds nothing. Push twice in a minute and the first run is
+    # answering a question nobody is asking any more, so cancelling it saves
+    # minutes and costs a result that was already stale.
+    concurrency:
+      group: tests-${{ github.ref }}
+      cancel-in-progress: true
+    # ~2 minutes of work. 20 is generous against that and still well under
+    # GitHub's 360-minute default, which is 18% of the monthly allowance on one
+    # hung job. This is the workflow a stranger's pull request can start, so it
+    # is the one where an unbounded job costs the most.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run the suite
+        # No marker filter. reel-engine skips `slow` and `network` because it
+        # renders a 750-frame reel and reaches edge-tts; this repository has
+        # neither marker and no test here opens a socket, so the whole suite is
+        # the fast suite.
+        run: python -m pytest -q

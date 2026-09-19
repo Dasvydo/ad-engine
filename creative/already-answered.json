@@ -1,0 +1,27 @@
+{
+  "id": "already-answered",
+  "framing": "already-answered",
+  "hypothesis": "The FINUM pattern, applied. MEASURED 2026-09-19: FINUM (LT) has run ONE headline - 'Buhalteriai suprantantys versla', accountants who understand business - since 2024-03-05, still delivering 2026-09-18, across nineteen live variants. NINE HUNDRED AND TWENTY-EIGHT DAYS of somebody else's money on a line that names competence rather than software, and carries no number. Dinero's most duplicated line, 'Overblik uden overtid', is the same shape. own_knowledge_base is verified in claims/evidence.json, which is our version of understanding: the firm's own answers, not a general model's. UNTESTED.",
+  "primary_text": {
+    "en": "The same client questions come back every month. What the service costs, when the deadline falls, which papers are missing.\n\nYour firm has answered all of them before - in sent mail, in the handbook, in the fee schedule. DoviLoop turns that into a reply waiting in the right person's Outlook drafts, in their own words.\n\nNothing sends until they read it.",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "headline": {
+    "en": "Answers your firm already gave",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "description": {
+    "en": "Grounded in your documents, not the internet",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "cta": "LEARN_MORE",
+  "destination": "https://doviloop.dev",
+  "creative_source": {
+    "_note": "reel-engine renders these. Reuse rather than commissioning new video.",
+    "video": "reel-engine: content/accountants.json",
+    "still": "reel-engine: --still frame from the same job"
+  }
+}
