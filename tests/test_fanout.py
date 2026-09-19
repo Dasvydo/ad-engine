@@ -1190,8 +1190,17 @@ def test_the_shipped_seeds_file_prices_under_the_workflow_budget():
     # work went well. What docs/COST.md actually promises is HEADROOM: a sweep
     # and a same-hour re-run both fit inside the hourly allowance, and
     # research.yml passes --budget 150 against a ceiling of 200.
-    pages = len(seeds.pages)
-    expected_searches = -(-pages // discover.MAX_PAGE_IDS_PER_CALL) + len(seeds.queries)
+    # CORRECTED 2026-09-19, with the twin of this line in
+    # tests/test_discover.py: discover.plan batches pages BY COUNTRY LIST and
+    # then ten to a call, so ceil(total / 10) is not the page cost. It matched
+    # only while the file's pages fell into two groups of 7 and 6.
+    groups: dict[tuple[str, ...], int] = {}
+    for page in seeds.pages:
+        key = tuple(page.countries or seeds.countries)
+        groups[key] = groups.get(key, 0) + 1
+    expected_searches = sum(
+        -(-count // discover.MAX_PAGE_IDS_PER_CALL) for count in groups.values()
+    ) + len(seeds.queries)
     assert estimate["searches"] == expected_searches
     assert estimate["ad_library_calls"] == expected_searches * discover.DEFAULT_MAX_PAGES
     assert estimate["ad_library_calls"] < 20 <= 150
@@ -1199,9 +1208,13 @@ def test_the_shipped_seeds_file_prices_under_the_workflow_budget():
 
 
 def test_the_dry_run_names_that_no_competitor_is_watched(repo):
-    """The shipped seeds file watches two icp-adjacent pages and no
-    competitor - the two competitors are commented out with blank ids, on
-    purpose. The preflight says so; it is a note, not a failure."""
+    """A seeds file watching no competitor gets a note, not a failure.
+
+    The `repo` fixture's synthetic seeds are the subject here, not the
+    shipped file - which as of 2026-09-19 watches three competitors (Echo
+    You, Fyxer, Jace.ai) and would no longer produce the note at all. That
+    is the reason this test builds its own: the preflight's behaviour when
+    nobody is watched has to stay testable after somebody is."""
     report = plan_with(repo)
 
     assert report.ok

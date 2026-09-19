@@ -377,12 +377,27 @@ def test_the_shipped_plan_stays_far_inside_one_hour():
     inside the hourly allowance that a same-hour re-run still fits, so that
     is what is pinned here. The arithmetic is re-derived rather than
     hardcoded, so adding a page moves the number and never the verdict.
+
+    CORRECTED 2026-09-19: the re-derivation was `ceil(len(pages) / 10)`,
+    which ignores that discover.plan batches pages BY COUNTRY LIST and then
+    ten to a call. It agreed with the implementation only because every page
+    in the file happened to fall into one of two country groups, 7 and 6, and
+    ceil(13/10) is also 2. Seeding two pages that search DK and LT together
+    made a third group, the real answer became 3, and the coincidence broke.
+    The grouping is re-derived here in plain Python rather than through
+    discover._pages_by_countries, so this stays an independent check of the
+    implementation rather than a restatement of it.
     """
     seeds = discover.load_seeds()
     planned = discover.plan(seeds)
 
-    pages = len(seeds.pages)
-    expected_page_calls = -(-pages // discover.MAX_PAGE_IDS_PER_CALL)  # ceil
+    groups: dict[tuple[str, ...], int] = {}
+    for page in seeds.pages:
+        key = tuple(page.countries or seeds.countries)
+        groups[key] = groups.get(key, 0) + 1
+    expected_page_calls = sum(
+        -(-count // discover.MAX_PAGE_IDS_PER_CALL) for count in groups.values()
+    )
     assert planned["page_calls"] == expected_page_calls
     assert planned["query_calls"] == len(seeds.queries)
     assert planned["max_calls"] == (
@@ -1190,17 +1205,83 @@ def test_no_page_is_seeded_without_a_real_id():
         assert page.countries, f"{page.id} names no country to search in"
 
 
-def test_fyxer_and_jace_stay_commented_out_until_somebody_reads_their_ids():
-    """The two reel-engine watches on YouTube. A keyword search for either
-    name across five countries returned 2,642 ads and none of theirs, so the
-    id has to come from the Ad Library UI - and they may run in no EU country
-    at all, in which case the archive does not hold them. Recorded in the
-    file rather than seeded blind."""
-    text = discover.SEEDS_PATH.read_text(encoding="utf-8")
-    assert "# - id: fyxer" in text and "# - id: jace-ai" in text
-    assert "#   page_id:\n" in text
-    seeded = {p.id for p in discover.load_seeds().pages}
-    assert "fyxer" not in seeded and "jace-ai" not in seeded
+def test_fyxer_and_jace_are_seeded_by_page_id():
+    """The two reel-engine watches on YouTube, now seeded.
+
+    This test used to assert the OPPOSITE - that both stay commented out
+    "until somebody reads their ids" - and carried the claim that a keyword
+    search for either name returned "2,642 ads and none of theirs". Somebody
+    read the ids on 2026-09-19, and the claim did not survive: the same
+    search returned 2,722 and Fyxer's own ads were in the first fifty. The
+    test did its job by naming its own expiry condition, and this is that
+    condition met.
+
+    What is pinned now is the lesson that WAS true: a competitor is reached
+    by page id, never by searching its name. `Jace` alone returns 1.46M ads,
+    essentially none of them Jace.ai's, so a query row for either brand would
+    be a call a week spent on Balkan short-drama spam.
+    """
+    pages = {p.id: p for p in discover.load_seeds().pages}
+
+    for seed_id, page_id in (("fyxer", "484462831408750"),
+                             ("jace-ai", "591862607340162")):
+        assert seed_id in pages, f"{seed_id} is no longer seeded"
+        page = pages[seed_id]
+        assert page.page_id == page_id
+        assert page.origin == "competitor"
+        assert "DK" in page.countries and "LT" in page.countries, (
+            f"{seed_id} is watched in {page.countries}; both of its archived "
+            f"ad sets reach DK and LT, which is where we sell"
+        )
+
+    queries = {q.text.lower() for q in discover.load_seeds().queries}
+    for brand in ("fyxer", "jace"):
+        assert not any(brand in q for q in queries), (
+            f"{brand!r} appears in a keyword query. Keyword search matches "
+            f"creative TEXT, so a brand name there buys a page of somebody "
+            f"else's ads; reach a competitor by page id."
+        )
+
+
+def test_pages_are_batched_per_country_list_not_per_file(tmp_path):
+    """Ten to a call WITHIN a country group, never across groups.
+
+    Nothing tested this directly, which is how the two budget tests came to
+    re-derive page_calls as ceil(total / 10) and pass anyway. Three pages in
+    three different country groups cost three calls; the naive reading says
+    one. A synthetic file, because the shipped one would stop discriminating
+    the moment its country lists happened to line up again.
+    """
+    def seeds_for(rows):
+        body = "countries: [DK]\npages:\n"
+        for index, countries in enumerate(rows):
+            body += (
+                f"  - id: p{index}\n"
+                f"    name: Page {index}\n"
+                f'    page_id: "10000000000000{index:02d}"\n'
+                f"    origin: icp-adjacent\n"
+                f"    countries: [{', '.join(countries)}]\n"
+            )
+        path = tmp_path / f"seeds-{len(rows)}-{abs(hash(str(rows)))}.yaml"
+        path.write_text(body + "queries: []\n", encoding="utf-8")
+        return discover.load_seeds(path)
+
+    # Three pages, three distinct country lists: one call each.
+    spread = discover.plan(seeds_for([["DK"], ["LT"], ["DK", "LT"]]))
+    assert spread["pages"] == 3
+    assert spread["page_calls"] == 3, (
+        "pages in different country groups cannot share a call - the country "
+        "list is a parameter of the request, not of the page"
+    )
+
+    # Eleven pages, one country list: ten to a call, so two calls.
+    packed = discover.plan(seeds_for([["DK"]] * 11))
+    assert packed["pages"] == 11
+    assert packed["page_calls"] == 2
+
+    # And the two rules compose: 11 DK + 1 LT is 2 + 1, not ceil(12 / 10).
+    mixed = discover.plan(seeds_for([["DK"]] * 11 + [["LT"]]))
+    assert mixed["page_calls"] == 3
 
 
 def test_the_shipped_queries_are_the_markets_own_words():

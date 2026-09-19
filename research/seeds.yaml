@@ -163,27 +163,44 @@ pages:
     origin: icp-adjacent
     countries: [LT]
 
-  # The two competitors reel-engine watches on YouTube are still NOT seeded,
-  # and the reason is worth keeping rather than retrying: a keyword search
-  # for either name across GB, DE, NL, DK and SE returned 2,642 ads and none
-  # of theirs. That is the archive working correctly - keyword search matches
-  # creative TEXT and a company's own name is rarely in its own copy - so the
-  # page_id has to be read out of the Ad Library UI by hand. Before filling
-  # one in, check the page runs ads in SOME EU country: a commercial ad that
-  # reached no EU country is not in the archive at all, and a page that
-  # returns nothing costs a call every week for nothing.
+  # The two competitors reel-engine watches on YouTube. Both are now seeded,
+  # and the note that used to sit here was WRONG - it said a keyword search
+  # for either name returned "2,642 ads and none of theirs" and concluded the
+  # page ids had to be read out of the UI by hand. Re-run on 2026-09-19 across
+  # the same countries, `Fyxer` returned 2,722 and Fyxer's own ads were in the
+  # first fifty of them. The old conclusion was not a property of the archive;
+  # it was a bad read. What IS true about keyword search is narrower: a
+  # one-word brand name that is also an ordinary word drowns. `Jace` alone
+  # returns 1,462,969 ads, essentially all of them Balkan short-drama spam;
+  # `Jace AI email assistant` returns 287 and Jace.ai is inside them. The
+  # lesson kept from the old note: reach a competitor by page id, not by name.
   #
-  # - id: fyxer
-  #   name: Fyxer
-  #   origin: competitor
-  #   page_id:
-  #   countries: [GB]
+  # MEASURED 2026-09-19, and the reason both are seeded despite it: NEITHER
+  # PAGE HAS A SINGLE ACTIVE AD anywhere in DK, LT, GB, IE, DE, NL, SE, FR,
+  # ES, PL, IT, FI, NO, BE or AT. Everything they have is archived:
   #
-  # - id: jace-ai
-  #   name: Jace AI
-  #   origin: competitor
-  #   page_id:
-  #   countries: [GB]
+  #   Fyxer      1,026 ads reaching DK or LT, newest created 2026-06-10
+  #   Jace.ai      234 ads reaching DK or LT, newest created 2026-01-23
+  #
+  # That is not a reason to skip them, it is the reason to seed them NOW. The
+  # archive keeps about a year, so Jace's December ads start falling out of it
+  # in roughly ten weeks and nothing brings them back. And a STOPPED ad is
+  # better longevity evidence than a running one: a running ad's days_running
+  # is a lower bound that moves, while these have a start and a stop, so what
+  # they say is final. Two page searches a week against a corpus that dedupes
+  # by ad id costs two calls of about twenty and catches either of them the
+  # week they start advertising again.
+  - id: fyxer
+    name: Fyxer
+    page_id: "484462831408750"
+    origin: competitor
+    countries: [DK, LT]
+
+  - id: jace-ai
+    name: Jace.ai
+    page_id: "591862607340162"
+    origin: competitor
+    countries: [DK, LT]
 
 # --------------------------------------------------------------------------
 # queries - keyword searches, for ads from pages you have not seeded.
