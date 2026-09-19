@@ -1,6 +1,6 @@
 # Getting live
 
-Everything in this repository runs offline today: 1,618 tests, no key, no
+Everything in this repository runs offline today: 1,757 tests, no key, no
 token, no socket. What stands between that and a real ad is a short list of
 things only a person can do, and this is that list, in the order that wastes
 the least of your time.
@@ -180,6 +180,26 @@ without it.
 ---
 
 ## Step 9 - The measure token (5 minutes, and only once an ad has run)
+
+**First, fill the `own:` block** in `research/seeds.yaml`. It ships blank, and
+blank is not an error - `engine/feedback.py` writes a record with `page_id ""`
+and channel `"own"`, which is true rather than guessed. But a corpus of our own
+ads that cannot name the page it ran from is worth less every week, so fill it
+before the first launch rather than after:
+
+```yaml
+own:
+  page_id: "<digits from the Ad Library URL for the DoviLoop page>"
+  page_name: DoviLoop
+  ad_account_id: act_<digits from Ads Manager>
+```
+
+`page_id` is validated as all-digits on load and is **not** the page name;
+read the number out of the Ad Library URL for the page. `ad_account_id` is
+recorded for the operator's benefit - `engine/measure.py` deliberately never
+reads it, because the ad ids pinned into `queue/launched/<segment>.json`
+already say which ads are ours.
+
 
 `engine/measure.py` reads our own ads' click-through rate, which is the
 strongest evidence this loop will ever hold. It needs `ads_read` on the ad
