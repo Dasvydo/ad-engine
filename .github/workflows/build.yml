@@ -1,0 +1,555 @@
+name: build
+
+# The first `go`: the copy has been read and approved, so now the creative
+# gets made.
+#
+# WHAT IS ACTUALLY BUILT, AND WHERE. Nothing in this repository renders. The
+# ad's video is a reel, and reels are shot by reel-engine - its templates, its
+# pinned Chromium, its claims gate, its deterministic frame seeking. So this
+# job checks that repository out as a sibling at ../reel-engine, installs it
+# there, and runs ITS `engine.propose` against the selection sidecar this
+# repository wrote beside the job (queue/proposed/<segment>.reel.json). The MP4
+# and the still come back as artifacts and the still is committed beside the
+# job, so the approval issue can show it.
+#
+# This is the ONLY place in this repository where a browser is installed, and
+# it is installed inside the sibling checkout that needs one. research.yml,
+# propose.yml, measure.yml and tests.yml all say in their own headers that they
+# do not, and tests/test_workflows.py holds them to it.
+#
+# A COPY-ONLY AD SKIPS ALL OF THAT. creative_source.kind comes off the job
+# file: `reel` shoots one, and anything else (`still`, `none`) takes the short
+# path - no sibling checkout, no browser, no model call, no artifact. The job
+# still advances to queue/built/ and the issue still gets its Ads Manager
+# instructions, because a static ad is uploaded by hand exactly like a video
+# one. reel-engine's still path shoots a 9:16 frame of a BUILT reel and how a
+# 1:1 static is cropped out of that is UNVERIFIED, so `still` deliberately does
+# not pretend to be wired: it is treated as copy-only until somebody has shot
+# one and seen it.
+#
+# WHY THE STAGE IS CHECKED TWICE. The two taps that move an ad through this
+# queue are identical in the webhook payload - `go` on an issue, both times -
+# and only the directory can tell them apart. `stage:copy` is a cheap
+# pre-filter so the wrong tap does not boot a runner; `approval resolve
+# --expect proposed` is the authority, and it refuses rather than guesses.
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+
+
+jobs:
+  build:
+    # JOB level, not workflow level, and deliberately so. Every label event
+    # starts a run of every label-triggered workflow - the `if:` gates the job,
+    # not the trigger - and a workflow-level group is acquired by the RUN, so
+    # the runs that were only ever going to skip would still queue here. GitHub
+    # keeps one running plus one pending per group and cancels the older
+    # pending run, which is how a `no` tap was observed cancelling a render in
+    # the sibling repository. A skipped job never acquires the slot, so the
+    # group still serialises everything that actually touches this issue's
+    # queue files, without the no-ops competing for it.
+    concurrency:
+      group: ad-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    # The label guard is mandatory. Without it, adding `no` also starts a
+    # build.
+    if: >-
+      github.event.label.name == 'go' &&
+      contains(github.event.issue.labels.*.name, 'stage:copy')
+    runs-on: ubuntu-latest
+    # The most expensive job here, and almost none of it is this repository:
+    # a Chromium download, reel-engine's own install, one writing call and one
+    # gate call inside the sibling, then the encode. docs/COST.md ESTIMATES ~8
+    # minutes; 30 is ~4x that and a real cap on the failure this exists to
+    # bound - a headless Chromium that never exits looks exactly like a slow
+    # encode, and GitHub's 360-minute default would spend 18% of the month on
+    # one stuck ad.
+    timeout-minutes: 30
+    steps:
+      # First, so the stamp covers both installs. This is where an unnoticed
+      # drift in minute consumption would show up, because the browser download
+      # dominates it. See docs/COST.md.
+      - name: Stamp the start time
+        run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      # issues events check out a detached HEAD, so the branch is explicit -
+      # this job pushes.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Resolve the job
+        id: job
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: python -m engine.approval resolve --issue "$ISSUE" --expect proposed
+
+      # What the writer decided, read off the job rather than guessed from the
+      # placement here: engine/write.py already resolved placement -> kind,
+      # template and selection path, and re-deriving it in YAML would be a
+      # second opinion that can drift from the first.
+      - name: Read what creative this job asks for
+        id: creative
+        env:
+          SEGMENT: ${{ steps.job.outputs.segment }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          segment = os.environ["SEGMENT"]
+          job = json.loads(
+              pathlib.Path("queue/proposed/%s.json" % segment).read_text(encoding="utf-8")
+          )
+          source = job.get("creative_source") or {}
+          kind = str(source.get("kind") or "")
+          # The gate refuses an unknown kind before a job is ever filed, so
+          # reaching one here means the file was edited by hand. Refuse rather
+          # than fall through to the copy-only path, which would silently ship
+          # an ad whose video nobody shot.
+          if kind not in ("reel", "still", "none"):
+              raise SystemExit(
+                  "queue/proposed/%s.json has creative_source.kind %r, which is "
+                  "not one of reel, still, none. Fix the job file, or re-run "
+                  "propose for this segment." % (segment, kind)
+              )
+
+          template = str(source.get("template") or "")
+          selection = str(source.get("selection") or "")
+          concept = ""
+
+          if kind == "reel":
+              # reel-engine picks its template and its concept from these two.
+              # Both are written by engine/write.py; a job missing either was
+              # hand-edited, and guessing a template would shoot the wrong
+              # shape of reel for the placement that was approved.
+              if not template:
+                  raise SystemExit(
+                      "%s asks for a reel but names no creative_source.template; "
+                      "reel-engine would fall back to its own default and shoot "
+                      "a shape nobody approved." % segment
+                  )
+              if not selection:
+                  raise SystemExit(
+                      "%s asks for a reel but names no creative_source.selection, "
+                      "so there is no concept to shoot it from." % segment
+                  )
+              # The render step joins this onto $GITHUB_WORKSPACE, so a
+              # value that is not ROOT-relative reads here and then misses
+              # there. Measured: "/tmp/x.reel.json" opens fine in this step
+              # and arrives at the sibling as
+              # "$GITHUB_WORKSPACE//tmp/x.reel.json".
+              if selection.startswith("/") or ".." in selection.split("/"):
+                  raise SystemExit(
+                      "%s names creative_source.selection %r, which is not a "
+                      "path inside this repository. engine/write.py stamps "
+                      "queue/proposed/<segment>.reel.json; re-run propose for "
+                      "this segment." % (segment, selection)
+                  )
+              document = json.loads(
+                  pathlib.Path(selection).read_text(encoding="utf-8")
+              )
+              selected = document.get("selected") or []
+              if not selected:
+                  raise SystemExit(
+                      "%s selects no concept, so reel-engine has nothing to "
+                      "write from." % selection
+                  )
+              concept = str(selected[0])
+
+          out = {
+              "kind": kind,
+              "template": template,
+              "selection": selection,
+              "concept": concept,
+          }
+          # A value carrying a newline would forge extra output lines, so it is
+          # refused rather than escaped.
+          for key, value in out.items():
+              if "\n" in value or "\r" in value:
+                  raise SystemExit("%s contains a line break: %r" % (key, value))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              for key, value in out.items():
+                  handle.write("%s=%s\n" % (key, value))
+          print("creative: kind=%(kind)s template=%(template)s "
+                "concept=%(concept)s" % out)
+          PY
+
+      # ----------------------------------------------------------------------
+      # The reel path. Everything from here to the upload is skipped for a
+      # copy-only ad, which is why each step carries the same condition rather
+      # than the job being split in two: one job, one commit, one comment, one
+      # label swap, whatever the creative turned out to be.
+      # ----------------------------------------------------------------------
+
+      - name: Require the credentials the reel path needs
+        if: steps.creative.outputs.kind == 'reel'
+        env:
+          REEL_ENGINE_TOKEN: ${{ secrets.REEL_ENGINE_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          missing=0
+          if [ -z "$REEL_ENGINE_TOKEN" ]; then
+            echo "::error::REEL_ENGINE_TOKEN is not set."
+            echo "::error::This job checks out Dasvydo/reel-engine as a sibling"
+            echo "::error::to shoot the ad's video. GITHUB_TOKEN cannot read"
+            echo "::error::another repository, so a fine-grained personal access"
+            echo "::error::token with Contents: read on reel-engine is what"
+            echo "::error::lets this clone it. See docs/SECRETS.md."
+            missing=1
+          fi
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::GEMINI_API_KEY is not set."
+            echo "::error::reel-engine writes the reel's script with it before"
+            echo "::error::rendering, and gates the result with its own claims"
+            echo "::error::gate. The same free key this repository uses works"
+            echo "::error::there; mint one at aistudio.google.com. Without it"
+            echo "::error::there is no video to build, so this fails rather"
+            echo "::error::than shipping a copy-only ad by accident."
+            echo "::error::See docs/SECRETS.md."
+            missing=1
+          fi
+          if [ "$missing" != "0" ]; then
+            echo "::error::The copy is untouched in queue/proposed/ and the"
+            echo "::error::issue still carries stage:copy, so fixing the secret"
+            echo "::error::and adding \`go\` again picks up where this stopped."
+            exit 1
+          fi
+
+      # actions/checkout cannot write outside $GITHUB_WORKSPACE, so the sibling
+      # arrives inside it and is moved one level up immediately. ../reel-engine
+      # relative to this repository's root is the layout every sibling-aware
+      # path in this repository assumes - tools/sync_backlog.py's DEFAULT_SOURCE
+      # is exactly that - and it is the layout a developer has on their own
+      # machine.
+      - name: Check reel-engine out as a sibling
+        if: steps.creative.outputs.kind == 'reel'
+        uses: actions/checkout@v4
+        with:
+          repository: Dasvydo/reel-engine
+          path: _reel-engine
+          token: ${{ secrets.REEL_ENGINE_TOKEN }}
+
+      - name: Move the sibling to ../reel-engine
+        if: steps.creative.outputs.kind == 'reel'
+        run: |
+          set -euo pipefail
+          dest="$(dirname "$GITHUB_WORKSPACE")/reel-engine"
+          rm -rf "$dest"
+          mv "$GITHUB_WORKSPACE/_reel-engine" "$dest"
+          # Exported so every step below names one path rather than rebuilding
+          # it, and so a failure says which checkout it was reading.
+          echo "REEL_ENGINE=$dest" >> "$GITHUB_ENV"
+          echo "reel-engine is at $dest"
+
+      - name: Install reel-engine and its pinned browser
+        if: steps.creative.outputs.kind == 'reel'
+        run: |
+          set -euo pipefail
+          pip install -r "$REEL_ENGINE/requirements.txt"
+          # --with-deps: the apt step it adds is what supplies the shared
+          # libraries a headless Chromium needs. Without it the failure is a
+          # missing .so at launch, which reads like a broken render rather than
+          # a missing dependency. The playwright version is pinned by
+          # reel-engine's own requirements.txt, which is where the browser
+          # build that shot its golden frames is decided.
+          python -m playwright install --with-deps chromium
+
+      # The one place in this repository where both copies of queue/backlog.md
+      # exist at once, so the one place the copy can be checked against its
+      # source. A WARNING, never a failure: a table that drifted is worth
+      # knowing about, and an approved ad must not be held up by it.
+      - name: Check the backlog copy has not drifted
+        if: steps.creative.outputs.kind == 'reel'
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          code=0
+          python tools/sync_backlog.py --check || code=$?
+          if [ "$code" -ne 0 ]; then
+            echo "::warning::queue/backlog.md differs from reel-engine's, or"
+            echo "::warning::could not be compared with it (the diff above says"
+            echo "::warning::which). The table here is a COPY, kept so that"
+            echo "::warning::nothing at run time needs the sibling; edit"
+            echo "::warning::reel-engine's and run: python tools/sync_backlog.py"
+            echo "::warning::This ad is unaffected and the build continues."
+          fi
+
+      # The half of the invariant that IS this ad's problem, and the only half
+      # worth failing over.
+      #
+      # The step above is deliberately a warning: reel-engine adding a sixth
+      # segment, or reordering the table, drifts the copy and breaks nothing
+      # here. So it must not go red, and a check that can never go red is what
+      # the 2026-09-19 audit called C7 - "enforced by nothing that can fail".
+      #
+      # This is the case that does break: reel-engine's `engine/propose.py`
+      # resolves a concept's `segment` against ITS OWN queue/backlog.md, so if
+      # THIS ad's segment was renamed or removed on that side, the render dies
+      # inside the sibling with a message about a repository nobody was
+      # looking at, after a Chromium download and a writing call have already
+      # been spent. Checked here instead, in one grep, before any of that.
+      - name: Check this ad's segment exists on the reel side
+        if: steps.creative.outputs.kind == 'reel'
+        env:
+          SEGMENT: ${{ steps.job.outputs.segment }}
+        run: |
+          set -euo pipefail
+          sibling="$(dirname "$GITHUB_WORKSPACE")/reel-engine/queue/backlog.md"
+          if python - "$sibling" "$SEGMENT" <<'PY'
+          import sys
+          path, segment = sys.argv[1], sys.argv[2]
+          rows = [
+              [c.strip() for c in line.strip().strip("|").split("|")]
+              for line in open(path, encoding="utf-8")
+              if line.strip().startswith("|")
+          ]
+          ids = {r[1] for r in rows if len(r) == 5 and r[0].isdigit()}
+          sys.exit(0 if segment in ids else 1)
+          PY
+          then
+            echo "$SEGMENT is in reel-engine's backlog; the render can resolve it."
+          else
+            echo "::error::$SEGMENT is NOT a segment in reel-engine's"
+            echo "::error::queue/backlog.md, and that is the table ITS propose"
+            echo "::error::resolves a concept against. The render would fail"
+            echo "::error::there, after this job had already paid for a Chromium"
+            echo "::error::download and a writing call."
+            echo "::error::Fix: add the row to reel-engine's queue/backlog.md,"
+            echo "::error::or re-propose this ad for a segment both repositories"
+            echo "::error::carry. queue/backlog.md here is a copy - run"
+            echo "::error::python tools/sync_backlog.py to bring it back in line."
+            exit 1
+          fi
+
+      - name: Shoot the reel in reel-engine
+        id: reel
+        if: steps.creative.outputs.kind == 'reel'
+        # A failed render must not leave the issue looking approved-and-stuck:
+        # the step below comments the reason, takes `go` off so a retry is one
+        # tap, and fails the job. Nothing advances, nothing is committed, and
+        # the copy stays in queue/proposed/ exactly as it was.
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SEGMENT: ${{ steps.job.outputs.segment }}
+          CONCEPT: ${{ steps.creative.outputs.concept }}
+          TEMPLATE: ${{ steps.creative.outputs.template }}
+          SELECTION: ${{ steps.creative.outputs.selection }}
+        run: |
+          set -euo pipefail
+          # The file the reader above already opened, not a second guess at
+          # its name: the concept in $CONCEPT was read out of $SELECTION, and
+          # rebuilding the path here would let the job name one document and
+          # the render shoot another. Joined onto $GITHUB_WORKSPACE because
+          # this runs with the sibling as its working directory: the
+          # ROOT-relative path the job carries would resolve inside
+          # reel-engine, where this repository's queue does not exist.
+          selection="$GITHUB_WORKSPACE/$SELECTION"
+          cd "$REEL_ENGINE"
+          # --still as well as --render: the frame is what the approval issue
+          # shows, and it is committed beside the job so the issue keeps
+          # working after the job moves out of queue/proposed/.
+          #
+          # reel-engine files a job of its own under ITS queue/proposed/ as it
+          # goes. That checkout is thrown away with the runner and is never
+          # pushed - but note that if the sibling's default branch already
+          # holds a live job for this same segment id, its propose refuses
+          # rather than overwriting, and this step fails with that message.
+          # The fix is in that repository, not this one.
+          python -m engine.propose \
+            --concept "$CONCEPT" \
+            --selection "$selection" \
+            --template "$TEMPLATE" \
+            --still --render 2>&1 | tee "$RUNNER_TEMP/reel.txt"
+          # Back into the workspace, so the artifacts upload from inside it and
+          # the still is next to the job it belongs to.
+          cp "$REEL_ENGINE/$SEGMENT.mp4" "$GITHUB_WORKSPACE/$SEGMENT.mp4"
+          cp "$REEL_ENGINE/queue/proposed/$SEGMENT.jpg" "$GITHUB_WORKSPACE/$SEGMENT.jpg"
+
+      - name: Block the issue
+        if: steps.reel.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -uo pipefail
+          {
+            echo "### The creative could not be built - this issue is blocked"
+            echo
+            echo "No video was produced, the job is still in \`queue/proposed/\`"
+            echo "and \`stage:copy\` has not moved, so nothing downstream can run."
+            echo
+            echo '```'
+            tail -n 40 "$RUNNER_TEMP/reel.txt" 2>/dev/null \
+              || echo "(reel-engine printed nothing before it stopped)"
+            echo '```'
+            echo
+            echo "Fix the cause, then add \`go\` again to retry."
+          } > "$RUNNER_TEMP/blocked.md"
+          python -m engine.approval comment --issue "$ISSUE" \
+            --body-file "$RUNNER_TEMP/blocked.md"
+          # Removing a label so a human can retry with one tap is the opposite
+          # of a workflow adding one to chain itself, which never fires.
+          python -m engine.approval label --issue "$ISSUE" --remove go
+          exit 1
+
+      - name: Upload the video and the still
+        if: steps.creative.outputs.kind == 'reel' && steps.reel.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ad-${{ steps.job.outputs.segment }}
+          path: |
+            ${{ steps.job.outputs.segment }}.mp4
+            ${{ steps.job.outputs.segment }}.jpg
+          # 14 days, not the 90 this would default to, because artifact storage
+          # is a free-tier ceiling that actually binds: a 1080x1920 MP4 is
+          # ~10-15MB against the 500MB a private repository gets. 14 days only
+          # has to outlive the gap between approving the copy and uploading the
+          # ad in Ads Manager. The still is not lost with it - it is committed
+          # to queue/built/ below, which is what the approval issue shows.
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Advance the job, commit it, and hand the issue to Ads Manager
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+          SEGMENT: ${{ steps.job.outputs.segment }}
+          KIND: ${{ steps.creative.outputs.kind }}
+        run: |
+          set -euo pipefail
+          # The directory is the stage and the label is a mirror of it, so the
+          # move happens first: if the commit below fails, the queue and the
+          # label disagree in the direction that refuses (the job is built, the
+          # issue still says stage:copy, and a second `go` is refused by
+          # --expect proposed) rather than in the direction that double-builds.
+          python -m engine.approval advance --segment "$SEGMENT" --to built
+
+          # The still travels with the job, so the issue's image keeps working
+          # after the job leaves queue/proposed/. Copied after the advance so
+          # it lands beside the job rather than chasing it.
+          if [ -f "$SEGMENT.jpg" ]; then
+            cp "$SEGMENT.jpg" "queue/built/$SEGMENT.jpg"
+          fi
+
+          git config user.name "doviloop-engine"
+          git config user.email "engine@doviloop.invalid"
+          git add queue
+          git commit -m "build: $SEGMENT"
+          # Pushes, with a rebase-and-retry, so a run that loses a race to the
+          # branch is not thrown away. The script says which day that cost a
+          # completed research sweep.
+          bash tools/push_with_retry.sh
+          sha="$(git rev-parse HEAD)"
+
+          {
+            echo "### Built"
+            echo
+            if [ "$KIND" = "reel" ]; then
+              echo "[Download the video and the still](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+              echo "- artifact \`ad-${SEGMENT}\`, kept 14 days. After that the"
+              echo "  MP4 is gone and building it again means another \`go\`."
+              echo
+              echo "![still frame](https://github.com/${GITHUB_REPOSITORY}/blob/${sha}/queue/built/${SEGMENT}.jpg?raw=1)"
+            else
+              echo "This is a copy-only ad - \`creative_source.kind\` is"
+              echo "\`${KIND}\`, so no video was shot and there is no artifact."
+              echo "Upload it with whatever image you are using for this"
+              echo "placement."
+            fi
+            echo
+            echo "#### In Ads Manager"
+            echo
+            echo "1. Create the ad in the campaign and ad set for this segment."
+            echo "2. Paste the primary text, headline and description from"
+            echo "   \`queue/built/${SEGMENT}.json\` - the English fields are"
+            echo "   gated; \`da\` and \`lt\` say NEEDS_NATIVE_PROOFREAD until a"
+            echo "   native has signed them off, and must not be published as"
+            echo "   they are."
+            echo "3. Set the CTA button and the destination from the same file."
+            echo "4. Publish it, then copy the **Ad ID** column out of Ads"
+            echo "   Manager - and the campaign id, if you want the row to"
+            echo "   carry it."
+            echo
+            echo "#### Then pin the ad id back"
+            echo
+            echo "Run the **launch** workflow (Actions > launch > Run workflow)"
+            echo "with:"
+            echo
+            echo "- \`segment\`: \`${SEGMENT}\`"
+            echo "- \`ad_id\`: the Ad ID you just copied"
+            echo "- \`campaign_id\`: optional"
+            echo "- \`issue\`: \`${ISSUE}\`"
+            echo
+            echo "or, from a terminal:"
+            echo
+            echo '```'
+            echo "  gh workflow run launch.yml -f segment=${SEGMENT} \\"
+            echo "    -f ad_id=<AD ID> -f issue=${ISSUE}"
+            echo '```'
+            echo
+            echo "That pins the id into the job, moves it to"
+            echo "\`queue/launched/\` and closes this issue. Every later"
+            echo "measurement is then an exact lookup rather than a guess."
+            echo
+            echo "Add \`no\` to reject it instead."
+          } > "$RUNNER_TEMP/built.md"
+          python -m engine.approval comment --issue "$ISSUE" \
+            --body-file "$RUNNER_TEMP/built.md"
+
+          # Two calls, because `approval label` takes one --add and one
+          # --remove: the second `go` arrives as the same payload as the first,
+          # and it is stage:copy going away that stops this workflow shooting
+          # the same reel twice.
+          python -m engine.approval label --issue "$ISSUE" \
+            --remove go --add stage:creative
+          python -m engine.approval label --issue "$ISSUE" --remove stage:copy
+
+      # always(), because a run that dies at the render has already paid for
+      # the browser download - those are exactly the minutes worth counting.
+      # Plain shell and `date` rather than a marketplace timing action: two
+      # subtractions are not worth a third-party dependency in every job.
+      - name: Report the minutes this job used
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+        run: |
+          # An unstamped job is unmeasured, not free. Reporting 0 would quietly
+          # understate the month.
+          if [ -z "${JOB_STARTED:-}" ]; then
+            {
+              echo "### Actions minutes"
+              echo
+              echo "- \`build\` never stamped a start time, so its cost is unknown."
+              echo "  The job was cancelled before its first step ran."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          elapsed=$(( $(date +%s) - JOB_STARTED ))
+          {
+            echo "### Actions minutes"
+            echo
+            echo "- \`build\` took $(( elapsed / 60 ))m $(( elapsed % 60 ))s wall clock; status \`$STATUS\`."
+            # Billing rounds each job up to the whole minute, so the billed
+            # figure is the one to add up, not the wall clock.
+            echo "- Billed as $(( (elapsed + 59) / 60 )) minute(s) of the 2,000/month Linux allowance."
+            echo "- Budget and headroom: \`docs/COST.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"

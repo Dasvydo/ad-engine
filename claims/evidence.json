@@ -44,5 +44,30 @@
       "safe_phrasings": [],
       "note": "Any percentage in an ad needs a measurement behind it. There is none yet."
     }
+  },
+  "attestations": {
+    "_note": "Attestations for numbers - digits AND number words: one, half, twice, dozen - appearing in a spoken ad field. Keyed by sha256('<field>.<lang>' + '|' + spoken text), where spoken text has ** stripped and whitespace collapsed; engine.gate.evidence_key('headline.en', text) computes it and a failing gate prints the exact key to add. kind is one of: measured (has a stopwatch or a dataset behind it), architectural (true by construction of the code), illustrative (a rhetorical cardinal in narrator prose, not a quantitative claim). Same policy, same hashing as reel-engine/claims/evidence.json, so a hook attested there is attested here for the same field name. Empty on purpose: no ad has yet needed a number."
+  },
+  "offers": {
+    "guarantee": {
+      "status": "verified",
+      "evidence": "docs/ICP-BRIEF.md: knowledge base first; if the drafts are not good enough to send after the trial, they do not pay and keep it",
+      "safe_phrasings": ["If the drafts are not good enough to send, you do not pay and you keep the knowledge base"]
+    },
+    "design_partner": {
+      "status": "verified",
+      "evidence": "docs/ICP-BRIEF.md: first ten firms, onboarding waived, in exchange for a case study",
+      "safe_phrasings": ["Design-partner terms for the first firms in"]
+    },
+    "demo": {
+      "status": "verified",
+      "evidence": "a call can be booked",
+      "safe_phrasings": ["See it on your own inbox"]
+    },
+    "free_trial": {
+      "status": "UNVERIFIED",
+      "evidence": "no self-serve trial exists; revenue is switched off in the product",
+      "safe_phrasings": []
+    }
   }
 }

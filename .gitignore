@@ -1,5 +1,41 @@
+# What must never be committed, and why. Four of these lines are load-bearing
+# for something else in the tree; the rest are ordinary Python noise.
+
 __pycache__/
 *.pyc
 .venv/
-queue/*.csv
 .env
+
+# The hashed audience export. engine/audience.py writes it from a list that
+# lives in outreach-engine; the raw list never leaves the machine that built it.
+queue/*.csv
+
+# Scratch output. Nothing downstream reads it.
+out/
+
+# Somebody else's creative. An operator opens an ad's snapshot URL and saves
+# the file here by hand so engine/analyse.py can attach it to one model call -
+# nothing in this repository fetches one. `research/media/*` covers EVERY
+# suffix, not just the video ones below, which is what makes `git add
+# research/media` safe to have never been written. The README is the one file
+# in there that is ours.
+research/media/*
+!research/media/README.md
+
+# Renders. reel-engine shoots the video and build.yml keeps it as an Actions
+# artifact for 14 days; an MP4 has no business in git history.
+*.mp4
+*.mov
+*.m4v
+*.webm
+
+# NOT IGNORED, deliberately, and each one has a reader:
+#   queue/**/*.jpg          the still reel-engine shot, committed beside the
+#                           job by build.yml so the approval issue can show it.
+#                           Add a *.jpg rule here and the second tap loses its
+#                           picture.
+#   research/corpus/*.json  the evidence. One file per analysed ad; git history
+#                           is the audit log.
+#   research/patterns.json  what the corpus counts to.
+#   research/selection.json the weekly report, written on every live run.
+#   research/measurements.json  what our own launched ads did.
