@@ -1334,3 +1334,71 @@ def test_launched_jobs_reads_through_approval(queue, monkeypatch):
     # An absent queue is no jobs, not an error: a fresh checkout has none.
     monkeypatch.setattr(approval, "QUEUE", queue / "elsewhere")
     assert measure.launched_jobs() == []
+
+
+# ---------------------------------------------------------------------------
+# The token, below Exception
+#
+# This module always delegated its cut to engine.oauth - it never kept a copy,
+# which is why the 2026-09-19 leak was engine/discover.py's and not this
+# module's. What it did share with discover was the two narrower gaps: a bare
+# type(exc)(clean) with no TypeError fallback, and `except Exception`, which
+# KeyboardInterrupt, SystemExit and asyncio.CancelledError sail straight past
+# with their messages and their chains intact.
+# ---------------------------------------------------------------------------
+
+SENTINEL_TOKEN = "EAA" + "Zq7Kx2Lw9Pv4Nt6Ym1Bd8Rf3Gh5Js0Cn" * 6
+
+
+def test_ctrl_c_keeps_its_type_and_still_gets_scrubbed():
+    """Caught, because `except Exception` misses it - but rebuilt as an
+    ApiError it would make a hung run need a second Ctrl-C to die."""
+    def interrupted():
+        raise KeyboardInterrupt("aborting while holding %s" % SENTINEL_TOKEN)
+
+    with pytest.raises(KeyboardInterrupt) as caught:
+        measure._scrubbed(SENTINEL_TOKEN, interrupted)
+    assert SENTINEL_TOKEN not in str(caught.value)
+
+
+def test_an_exit_code_survives_the_scrub():
+    """SystemExit(2) rebuilt from a string exits 1. Args are scrubbed element
+    by element, so an integer is left alone."""
+    def exiting():
+        raise SystemExit(2)
+
+    with pytest.raises(SystemExit) as caught:
+        measure._scrubbed(SENTINEL_TOKEN, exiting)
+    assert caught.value.code == 2
+
+
+def test_a_subclass_with_its_own_init_does_not_escape_the_scrubber():
+    """type(exc)(clean) on a subclass carrying its own signature is a
+    TypeError, and an uncaught one HERE escapes with the original as its
+    __context__ - the leak this wrapper exists to prevent, arriving through
+    the wrapper itself."""
+    class Awkward(measure.MeasureError):
+        def __init__(self, a, b):
+            super().__init__("%s / %s" % (a, b))
+            self.a, self.b = a, b
+
+    def awkward():
+        raise Awkward("token was %s" % SENTINEL_TOKEN, "second argument")
+
+    with pytest.raises(measure.MeasureError) as caught:
+        measure._scrubbed(SENTINEL_TOKEN, awkward)
+    assert SENTINEL_TOKEN not in str(caught.value)
+
+
+def test_a_partial_echo_is_cut_here_too():
+    """This module delegates, so oauth's partial-run cut reaches it for free -
+    which is the property that made delegation the fix in discover."""
+    body = "Invalid OAuth access token: %s" % SENTINEL_TOKEN
+    def echoes():
+        raise RuntimeError(body[:200])
+
+    with pytest.raises(measure.ApiError) as caught:
+        measure._scrubbed(SENTINEL_TOKEN, echoes)
+    cleaned = str(caught.value)
+    for start in range(0, len(SENTINEL_TOKEN) - 24):
+        assert SENTINEL_TOKEN[start:start + 24] not in cleaned

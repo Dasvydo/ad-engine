@@ -201,8 +201,21 @@ def status(out=None, today=None) -> int                  # names, never values; 
 def main(argv=None) -> int                                # --status
 ```
 
-Every exception message is scrubbed of the token value (`_never_leak`). A
-`META_TOKEN_ISSUED` more than a day in the future is refused.
+Every exception message is scrubbed of the token value, **whole or in part**.
+`_never_leak` is the wrapper inside `engine/oauth.py`; the two consumers do not
+call it, they call `oauth._redact` from their own `_scrubbed` wrappers, and
+this line used to name the wrapper as though it covered them. It does not, and
+the difference was a live leak: `engine/discover.py` kept a LOCAL copy of the
+cut that matched whole values only, while truncating Meta's error body itself
+to 200 characters - so a ~200-character token came back sliced by our own
+truncation into a fragment the copy could not match. Measured on 2026-09-19:
+116 characters to stderr and 40 into a committed file. **There is now one
+definition of the cut, `oauth._redact`, and both consumers delegate to it.**
+
+A `META_TOKEN_ISSUED` more than a day in the future is refused, and one that
+does not parse as a date is described by shape and length rather than echoed -
+a Meta app secret is exactly 32 characters, so a credential pasted into that
+variable by mistake must never be quoted back into an Actions log.
 
 ## research/seeds.yaml and engine/discover.py
 

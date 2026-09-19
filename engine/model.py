@@ -16,7 +16,13 @@ client shaped like this:
 
     client.messages.create(model=..., max_tokens=..., messages=[...])
         -> reply.content     a list of blocks; text lives on `.type == "text"`
-        -> reply.stop_reason "max_tokens" when the answer was cut short
+        -> reply.stop_reason why the answer ended, one of:
+             "end_turn"          the model finished on its own
+             "max_tokens"        the answer was cut short; it is incomplete
+             "blocked:<reason>"  the provider suppressed it - safety,
+                                 recitation, prohibited_content, blocklist,
+                                 or "blocked:prompt[:<reason>]" when the
+                                 prompt was refused before generation
 
 That shape is not Gemini's. It is the engine's own, and every call site plus
 its stub (tests/stubs.py) speaks it. `GeminiClient` presents it over the
@@ -216,8 +222,14 @@ class Reply:
 
 
 def api_key() -> str | None:
+    # .strip(), because a key pasted into a secret or exported from a file
+    # arrives with a newline or a space on it as often as not, and an
+    # all-whitespace value is the same fault as an unset one. Without this it
+    # is truthy, so client() builds happily and the provider answers 401 -
+    # which reads as "your key is wrong" rather than "your key is not set",
+    # and sends the operator looking at aistudio instead of at the export.
     for name in KEY_NAMES:
-        value = os.environ.get(name)
+        value = (os.environ.get(name) or "").strip()
         if value:
             return value
     return None
@@ -353,12 +365,46 @@ class _Messages:
         # reading a text block never meets None.
         text = response.text or ""
 
+        # WHY EVERY FINISH REASON IS CARRIED and not just MAX_TOKENS, which is
+        # what this did. `.text` is None for every suppressed answer, so a
+        # SAFETY, RECITATION, PROHIBITED_CONTENT or BLOCKLIST stop - and a
+        # prompt blocked before generation, which returns no candidates at all
+        # - all arrived at a call site as stop_reason='end_turn' with text ''.
+        # That is exactly the shape of a model that answered normally with
+        # nothing in it. MEASURED against google-genai 2.24.0 with real
+        # types.GenerateContentResponse objects: all five were end_turn/''.
+        #
+        # The cost was diagnostic. A writer refused a segment on safety
+        # grounds - ordinary for copy about money, health or employment - and
+        # the operator's whole account of it was
+        #
+        #     writing FAILED: could not parse JSON from the model: ''
+        #
+        # which points at the prompt's formatting. The reason was on the
+        # response object all along and this line threw it away. The reason a
+        # call failed is the one thing this adapter exists to carry across.
+        #
+        # blocked:* rather than the bare name so a call site can recognise the
+        # FAMILY - `stop_reason.startswith("blocked:")` - without listing the
+        # provider's enum, which grows.
         stop = "end_turn"
         candidates = getattr(response, "candidates", None) or []
         if candidates:
             reason = getattr(candidates[0], "finish_reason", None)
-            if reason is not None and getattr(reason, "name", str(reason)) == "MAX_TOKENS":
+            name = getattr(reason, "name", str(reason)) if reason is not None else None
+            if name == "MAX_TOKENS":
                 stop = "max_tokens"
+            elif name and name not in ("STOP", "FINISH_REASON_UNSPECIFIED"):
+                stop = "blocked:%s" % name.lower()
+        elif not text:
+            # No candidate and nothing to read: the prompt itself was refused.
+            # prompt_feedback carries why when the provider says; a call site
+            # gets "blocked:prompt" either way rather than a normal-looking
+            # empty answer.
+            feedback = getattr(response, "prompt_feedback", None)
+            blocked = getattr(feedback, "block_reason", None) if feedback else None
+            name = getattr(blocked, "name", str(blocked)) if blocked is not None else None
+            stop = "blocked:prompt" + (":%s" % name.lower() if name else "")
 
         return Reply(content=[TextBlock(text=text)], stop_reason=stop)
 
@@ -404,8 +450,8 @@ def call_model(client, *, model: str, max_tokens: int, messages: list[dict]) -> 
     API error escaped as a traceback mid-run, one attempt after a perfectly
     good verdict, and read like a crash.
 
-    Credential, quota and exhausted-capacity faults are converted. A malformed
-    request keeps its traceback because it is a bug.
+    Credential, quota, retired-model and exhausted-capacity faults are
+    converted. A malformed request keeps its traceback because it is a bug.
 
     Note what "converted" does NOT mean for a 503: GeminiClient carries a
     retry ladder that spends about 65 seconds on one before it ever reaches
@@ -439,6 +485,19 @@ def call_model(client, *, model: str, max_tokens: int, messages: list[dict]) -> 
                 "Gemini rejected the key: %s. Mint a free one at "
                 "aistudio.google.com and set GEMINI_API_KEY" % text
             ) from exc
+        if code == 404 or "NOT_FOUND" in text:
+            # The pins go stale: gemini-2.5-flash is already 404 "no longer
+            # available to new users" for a new key, which is why MODEL_FLASH
+            # matches the tier rather than the board's string. When the current
+            # pin goes the same way the operator needs the next step, not a
+            # google.genai traceback that reads like the engine broke.
+            raise ConfigError(
+                "Gemini has no model %r for this key: %s. The pinned ids go "
+                "stale - run reel-engine's .github/workflows/models.yml, which "
+                "CALLS each candidate rather than trusting models.list(), and "
+                "pin what it says in MODEL_FLASH / MODEL_WRITE."
+                % (model, text)
+            ) from exc
         if code == 429 or "RESOURCE_EXHAUSTED" in text:
             raise ConfigError(
                 "the Gemini free tier is rate limited right now: %s. It "
@@ -465,10 +524,27 @@ def first_json_object(text: str) -> dict | None:
     """The one JSON object in a model's answer, or None.
 
     A well-behaved response is the object and nothing else, so try the whole
-    string first; the greedy regex is the fallback for prose or a code fence
-    around it. When even that fails - prose AFTER the object that happens to
-    contain a brace - decode from the first `{` and stop where the object
-    stops. Anything that is not an object is None, never a list or a string.
+    string first. Otherwise try to decode an object at EVERY `{` in the string
+    and take the first one that comes out whole. Anything that is not an
+    object is None, never a list or a string.
+
+    WHY EVERY BRACE and not one greedy `\\{.*\\}` match, which is what this
+    was. That regex starts at the first `{` in the whole string, so a brace in
+    the prose BEFORE the object - and the gate's own rubric ends by showing
+    the model a literal {"pass": true|false, "failures": [...]} template to
+    copy - made the match span from that brace to the last `}` in the answer.
+    json.loads then failed, and the raw_decode fallback retried from the SAME
+    offset, so both paths were anchored to the prose. MEASURED on the answer
+    'I checked every hard failure {none found} and the claims list.\\n
+    {"pass": true}': it returned None, engine/gate.py fails closed on None,
+    and a draft the judge had PASSED was recorded as a refusal - then rewritten
+    and re-judged, two more of a twenty-request day.
+
+    An empty object is SKIPPED while scanning, so '{ }{"pass": true}' finds
+    the verdict rather than `{}`. It used to return the empty one, which is
+    worse than None: a call site checking `is None` walks on with nothing in
+    its hands. A bare '{}' as the entire answer still returns `{}` - that is
+    the model saying so, not this function guessing.
     """
     try:
         whole = json.loads(text.strip())
@@ -478,14 +554,12 @@ def first_json_object(text: str) -> dict | None:
         if isinstance(whole, dict):
             return whole
 
-    match = re.search(r"\{.*\}", text, re.S)
-    if not match:
-        return None
-    try:
-        found = json.loads(match.group(0))
-    except json.JSONDecodeError:
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", text):
         try:
-            found, _ = json.JSONDecoder().raw_decode(text, match.start())
+            found, _ = decoder.raw_decode(text, match.start())
         except json.JSONDecodeError:
-            return None
-    return found if isinstance(found, dict) else None
+            continue
+        if isinstance(found, dict) and found:
+            return found
+    return None

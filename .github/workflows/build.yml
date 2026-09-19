@@ -292,6 +292,53 @@ jobs:
             echo "::warning::This ad is unaffected and the build continues."
           fi
 
+      # The half of the invariant that IS this ad's problem, and the only half
+      # worth failing over.
+      #
+      # The step above is deliberately a warning: reel-engine adding a sixth
+      # segment, or reordering the table, drifts the copy and breaks nothing
+      # here. So it must not go red, and a check that can never go red is what
+      # the 2026-09-19 audit called C7 - "enforced by nothing that can fail".
+      #
+      # This is the case that does break: reel-engine's `engine/propose.py`
+      # resolves a concept's `segment` against ITS OWN queue/backlog.md, so if
+      # THIS ad's segment was renamed or removed on that side, the render dies
+      # inside the sibling with a message about a repository nobody was
+      # looking at, after a Chromium download and a writing call have already
+      # been spent. Checked here instead, in one grep, before any of that.
+      - name: Check this ad's segment exists on the reel side
+        if: steps.creative.outputs.kind == 'reel'
+        env:
+          SEGMENT: ${{ steps.job.outputs.segment }}
+        run: |
+          set -euo pipefail
+          sibling="$(dirname "$GITHUB_WORKSPACE")/reel-engine/queue/backlog.md"
+          if python - "$sibling" "$SEGMENT" <<'PY'
+          import sys
+          path, segment = sys.argv[1], sys.argv[2]
+          rows = [
+              [c.strip() for c in line.strip().strip("|").split("|")]
+              for line in open(path, encoding="utf-8")
+              if line.strip().startswith("|")
+          ]
+          ids = {r[1] for r in rows if len(r) == 5 and r[0].isdigit()}
+          sys.exit(0 if segment in ids else 1)
+          PY
+          then
+            echo "$SEGMENT is in reel-engine's backlog; the render can resolve it."
+          else
+            echo "::error::$SEGMENT is NOT a segment in reel-engine's"
+            echo "::error::queue/backlog.md, and that is the table ITS propose"
+            echo "::error::resolves a concept against. The render would fail"
+            echo "::error::there, after this job had already paid for a Chromium"
+            echo "::error::download and a writing call."
+            echo "::error::Fix: add the row to reel-engine's queue/backlog.md,"
+            echo "::error::or re-propose this ad for a segment both repositories"
+            echo "::error::carry. queue/backlog.md here is a copy - run"
+            echo "::error::python tools/sync_backlog.py to bring it back in line."
+            exit 1
+          fi
+
       - name: Shoot the reel in reel-engine
         id: reel
         if: steps.creative.outputs.kind == 'reel'

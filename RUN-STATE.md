@@ -97,7 +97,7 @@ which a native speaker signs off and a model never claims to have written.
 | C4 | T12 | T13, T16 | Concept record, placement and offer | yes - tests/test_pipeline.py |
 | C5 | T16 | T19 (build.yml), reel-engine | The reel selection sidecar must satisfy reel-engine's own load_selection | yes - audited at T22 against the sibling's source |
 | C6 | T14 | T15 | Measurement row (C6), nulls never zeros | yes - tests/test_pipeline.py |
-| C7 | T5 | reel-engine's queue/backlog.md | The five segment ids must exist in both | yes today, byte for byte. `tools/sync_backlog.py --check` is what keeps it true |
+| C7 | T5 | reel-engine's queue/backlog.md | The five segment ids must exist in both | yes TODAY, byte for byte, verified against the ref build.yml checks out. **Nothing enforces it.** `tools/sync_backlog.py --check` detects all four drift shapes and exits 1, but no workflow in either repository runs it, so the invariant is a tool somebody has to remember, not a guarantee. An edit on the reel side breaks a build here and nothing goes red first |
 
 ## Hard stops
 

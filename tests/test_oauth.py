@@ -29,6 +29,7 @@ and asserts it imports nothing that could open one. A test that reached the
 network or picked up a real secret would fail rather than pass quietly.
 """
 import ast
+import asyncio
 import io
 import socket
 import traceback
@@ -47,7 +48,19 @@ from engine import oauth
 
 TOKEN = "EAAB0FAKEmetaTOKENneverLogMe00112233445566778899aabbcc"
 
-SECRET_VALUES = {"meta token": TOKEN}
+# The OTHER credential an operator holds while setting these two boxes, and
+# the one this suite used to be structurally unable to see. A Meta app secret
+# is exactly 32 hexadecimal characters - the same length as the longest
+# timestamp token_age_days can read - so it passed the length rule and was
+# printed in full. It is fabricated, and this repository deliberately does not
+# store a real one (see engine/oauth.py's module docstring), but the operator
+# handles it on the same dashboard the rotation steps send them to.
+APP_SECRET = "b2f4c8a19e7d30516cba8f2e4d9c7a01"
+
+# Everything the leak tests hunt for. A second entry here is the point: with
+# only the token in it, nothing in this file could notice a DIFFERENT
+# credential being emitted, and `_never_leak`'s scrub list cannot cut one.
+SECRET_VALUES = {"meta token": TOKEN, "meta app secret": APP_SECRET}
 
 # Every age in this file is relative to this instant, not the clock.
 TODAY = datetime(2026, 9, 18, 6, 0, 0, tzinfo=timezone.utc)
@@ -581,6 +594,13 @@ FAILURES = [
     ("meta/the token pasted into the date variable", _misdated(TOKEN, _meta())),
     ("meta/half the token pasted into the date variable",
      _misdated(TOKEN[:30], _meta())),
+    # A credential SHORT enough to be a date. The scrub list holds the access
+    # token and nothing else, so nothing here can cut this one: the shape
+    # rule in token_age_days is the only thing between it and the job log.
+    ("meta/the app secret pasted into the date variable",
+     _misdated(APP_SECRET, _meta())),
+    ("meta/the app secret in the date box with a date beside it",
+     _misdated("2026-08-01 %s" % APP_SECRET, _meta())),
     ("meta/the token pasted into the date variable with a date beside it",
      _misdated("2026-08-01 %s" % TOKEN, _meta())),
 
@@ -966,3 +986,355 @@ def test_a_whole_exercise_of_the_module_opens_no_socket(credentials, monkeypatch
     oauth.status(out=io.StringIO(), today=TODAY)
     monkeypatch.setenv(oauth.META_TOKEN_ISSUED, issued(50))
     oauth.meta_token(on_warning=lambda m: None, today=TODAY)
+
+
+# ---------------------------------------------------------------------------
+# A CREDENTIAL SHORT ENOUGH TO BE A DATE
+#
+# The hole this file could not see. Every "never prints a value" test above
+# uses TOKEN, which is 54 characters and so always lands on the safe side of
+# MAX_DATE_CHARS - the suite structurally could not reach the branch where a
+# value IS echoed. A Meta app secret is 32 characters and did reach it: before
+# `_looks_opaque`, `--status` printed it verbatim, and the workflows `cat`
+# that output into the Actions job log where a repository VARIABLE is never
+# masked. So the rule is shape, not length alone, and these are its edges.
+# ---------------------------------------------------------------------------
+
+
+SHORT_CREDENTIALS = [
+    ("meta app secret, 32 hex", APP_SECRET),
+    ("a 32-character token slice", TOKEN[:32]),
+    ("a 30-character token slice", TOKEN[:30]),
+    ("the shortest opaque run there is", "a1b2c3d4e5f6"),
+]
+
+
+@pytest.mark.parametrize("label,secret",
+                         SHORT_CREDENTIALS, ids=[n for n, _ in SHORT_CREDENTIALS])
+def test_a_credential_short_enough_to_be_a_date_is_still_not_echoed(label, secret):
+    # The pure function, with no token anywhere to scrub against.
+    assert len(secret) <= oauth.MAX_DATE_CHARS
+
+    with pytest.raises(oauth.MissingCredential) as caught:
+        oauth.token_age_days(secret, today=TODAY)
+
+    message = str(caught.value)
+    assert secret not in message, "%s was echoed" % label
+    assert secret[:oauth.MIN_REDACTED_RUN] not in message
+    # Described instead, which is what tells the operator what they pasted.
+    assert "%d-character" % len(secret) in message
+    assert "wrong box" in message
+    assert "YYYY-MM-DD" in message
+
+
+@pytest.mark.parametrize("label,secret",
+                         SHORT_CREDENTIALS, ids=[n for n, _ in SHORT_CREDENTIALS])
+@pytest.mark.parametrize("token_state", ["unset", "different", "same"])
+def test_status_never_prints_a_short_credential_from_the_date_box(
+    monkeypatch, label, secret, token_state
+):
+    # All three token states, because the scrub list is `[token] if have_token`
+    # and cannot help in two of them: unset is the state an operator is in
+    # when they pasted one box over and have not filled the other yet, and
+    # "different" is the state after they fixed the token but not the date.
+    if token_state == "different":
+        monkeypatch.setenv(oauth.META_ACCESS_TOKEN, TOKEN)
+    elif token_state == "same":
+        monkeypatch.setenv(oauth.META_ACCESS_TOKEN, secret)
+    monkeypatch.setenv(oauth.META_TOKEN_ISSUED, secret)
+
+    code, printed = run_status()
+
+    assert code == 1
+    assert "not a readable date" in printed
+    assert secret not in printed, "%s reached --status with the token %s" % (
+        label, token_state)
+    assert secret[:oauth.MIN_REDACTED_RUN] not in printed
+
+
+def test_the_cli_never_prints_a_short_credential_from_the_wrong_box(
+    monkeypatch, capsys
+):
+    # The whole way out: `python -m engine.oauth --status` is what
+    # .github/workflows/research.yml and measure.yml pipe into the job log.
+    monkeypatch.delenv(oauth.META_ACCESS_TOKEN, raising=False)
+    monkeypatch.setenv(oauth.META_TOKEN_ISSUED, APP_SECRET)
+
+    assert oauth.main(["--status"]) == 1
+
+    captured = capsys.readouterr()
+    assert APP_SECRET not in captured.out + captured.err
+    assert APP_SECRET[:oauth.MIN_REDACTED_RUN] not in captured.out + captured.err
+
+
+@pytest.mark.parametrize("typo", ["1 August 2026", "2026-13-45", "01/08/2026",
+                                  "last tuesday", "whenever", "60",
+                                  "2026-08-01T25:00:00", "Aug 1 2026"])
+def test_a_typo_is_still_echoed_so_the_operator_can_see_what_they_wrote(typo):
+    # The affordance the shape rule had to keep. Seeing your own typo quoted
+    # back is how you spot the day/month swap; describing it by length would
+    # be safe and useless.
+    with pytest.raises(oauth.MissingCredential) as caught:
+        oauth.token_age_days(typo, today=TODAY)
+
+    assert repr(typo) in str(caught.value)
+
+
+@pytest.mark.parametrize("written,echoed", [
+    ("x" * (oauth.MIN_REDACTED_RUN - 1), True),   # 11: a word could do that
+    ("x" * oauth.MIN_REDACTED_RUN, False),        # 12: the run floor
+    ("x" * oauth.MAX_DATE_CHARS, False),
+    ("x" * (oauth.MAX_DATE_CHARS + 1), False),
+    ("2026-13-45-99-11", True),                   # separators all the way down
+    ("x" * 11 + "-" + "y" * 11, True),            # two short runs, not one long
+])
+def test_the_echo_rule_is_shape_and_length_together(written, echoed):
+    # MIN_REDACTED_RUN is the floor already used for cutting partial echoes -
+    # "long enough that no English phrase collides with it by accident" - and
+    # it is reused here rather than inventing a second number.
+    with pytest.raises(oauth.MissingCredential) as caught:
+        oauth.token_age_days(written, today=TODAY)
+
+    assert (repr(written) in str(caught.value)) is echoed
+
+
+@pytest.mark.parametrize("text,opaque", [
+    ("2026-08-01", False),
+    ("1 August 2026", False),
+    ("last tuesday", False),
+    (APP_SECRET, True),
+    (TOKEN, True),
+    ("", False),
+])
+def test_looks_opaque_calls_a_credential_a_credential(text, opaque):
+    assert oauth._looks_opaque(text) is opaque
+
+
+# ---------------------------------------------------------------------------
+# Below Exception
+#
+# `_never_leak`'s docstring promises EVERY exception is converted, and
+# `except Exception` does not cover KeyboardInterrupt, SystemExit or
+# asyncio.CancelledError - which is what an async transport raises on a
+# timeout, the ordinary shape of caller code written against this seam. These
+# keep their own type (Ctrl-C must still abort, SystemExit must keep its
+# status) and are scrubbed and unchained like everything else.
+# ---------------------------------------------------------------------------
+
+
+BELOW_EXCEPTION = [
+    ("KeyboardInterrupt", KeyboardInterrupt),
+    ("SystemExit", SystemExit),
+    ("asyncio.CancelledError", asyncio.CancelledError),
+    ("GeneratorExit", GeneratorExit),
+]
+
+
+@pytest.mark.parametrize("label,kind",
+                         BELOW_EXCEPTION, ids=[n for n, _ in BELOW_EXCEPTION])
+def test_a_baseexception_from_a_transport_is_scrubbed_and_keeps_its_type(
+    label, kind, capsys
+):
+    def work():
+        raise kind("timed out while sending Bearer %s" % TOKEN)
+
+    with pytest.raises(kind) as caught:
+        oauth._never_leak([TOKEN], work)
+
+    assert type(caught.value) is kind, "%s was converted away" % label
+    haystack = surfaces(caught.value, capsys.readouterr())
+    assert TOKEN not in haystack
+    assert TOKEN[:oauth.MIN_REDACTED_RUN] not in haystack
+    assert oauth.REDACTED in str(caught.value)
+
+
+def test_an_abort_raised_while_a_token_bearing_error_was_handled_drops_the_chain():
+    # The scenario `_never_leak`'s docstring spends a paragraph on, arriving
+    # below Exception: the unscrubbed original rides out on __context__.
+    def work():
+        try:
+            raise ValueError("Invalid isoformat string: '%s'" % TOKEN)
+        except ValueError:
+            raise KeyboardInterrupt("aborted")
+
+    with pytest.raises(KeyboardInterrupt) as caught:
+        oauth._never_leak([TOKEN], work)
+
+    assert caught.value.__context__ is None
+    assert caught.value.__cause__ is None
+
+
+def test_a_systemexit_keeps_its_exit_status():
+    # Scrubbing is per-argument, so an integer exit code is left alone.
+    # Rebuilding SystemExit(2) from a string would silently turn it into 1.
+    def work():
+        raise SystemExit(2)
+
+    with pytest.raises(SystemExit) as caught:
+        oauth._never_leak([TOKEN], work)
+
+    assert caught.value.code == 2
+
+
+def test_a_baseexception_that_will_not_take_its_args_back_still_scrubs():
+    class Stubborn(BaseException):
+        def __init__(self, first, second):
+            super().__init__("%s | %s" % (first, second))
+
+    def work():
+        raise Stubborn("Bearer %s" % TOKEN, "second")
+
+    # Cannot be rebuilt, so it is converted - the safe direction.
+    with pytest.raises(oauth.OAuthError) as caught:
+        oauth._never_leak([TOKEN], work)
+
+    assert TOKEN not in str(caught.value)
+    assert "Stubborn" in str(caught.value)
+
+
+# ---------------------------------------------------------------------------
+# The guards nothing pinned
+# ---------------------------------------------------------------------------
+
+
+def test_an_oautherror_subclass_that_wants_two_arguments_is_still_scrubbed():
+    # The `except TypeError` fallback in _never_leak. A subclass with its own
+    # __init__ cannot be rebuilt from one string, so it comes back as a plain
+    # OAuthError rather than crashing inside the handler with the unscrubbed
+    # original chained onto the crash.
+    class TwoArgs(oauth.OAuthError):
+        def __init__(self, reason, code):
+            super().__init__("%s (%s)" % (reason, code))
+            self.code = code
+
+    def work():
+        raise TwoArgs("Meta says %s is dead" % TOKEN, 190)
+
+    with pytest.raises(oauth.OAuthError) as caught:
+        oauth._never_leak([TOKEN], work)
+
+    assert type(caught.value) is oauth.OAuthError
+    assert TOKEN not in str(caught.value)
+    assert oauth.REDACTED in str(caught.value)
+    assert caught.value.__context__ is None
+
+
+@pytest.mark.parametrize("today", ["2026-09-18", 1758160800, [2026, 9, 18]])
+def test_a_today_that_is_neither_a_date_nor_a_datetime_says_which_it_got(today):
+    # A caller's mistake, not an operator's, so it stays a TypeError rather
+    # than becoming a MissingCredential that tells a human to go edit a
+    # repository variable they got right.
+    with pytest.raises(TypeError) as caught:
+        oauth.token_age_days("2026-08-01", today=today)
+
+    assert type(today).__name__ in str(caught.value)
+
+
+def test_meta_token_turns_a_bad_today_into_a_scrubbed_oautherror(credentials):
+    # Inside _never_leak, so a caller still needs one except clause.
+    with pytest.raises(oauth.OAuthError) as caught:
+        oauth.meta_token(today="2026-09-18")
+
+    assert "TypeError" in str(caught.value)
+    assert TOKEN not in str(caught.value)
+
+
+def test_the_cli_turns_an_oauth_error_escaping_status_into_an_exit_code(
+    monkeypatch, capsys
+):
+    # status() answers every case it knows with a line and a code, so this
+    # handler is defensive - but it is the last thing between an exception and
+    # a job log, so what it does with one is worth pinning, value and all.
+    monkeypatch.setenv(oauth.META_ACCESS_TOKEN, TOKEN)
+
+    def boom(*args, **kwargs):
+        raise oauth.TokenExpired("Meta says %s is dead" % TOKEN)
+
+    monkeypatch.setattr(oauth, "status", boom)
+
+    assert oauth.main(["--status"]) == 1
+
+    captured = capsys.readouterr()
+    assert "Meta says" in captured.err
+    assert TOKEN not in captured.err
+    assert TOKEN[:oauth.MIN_REDACTED_RUN] not in captured.err
+
+
+def test_a_value_between_the_two_floors_is_cut_whole_but_not_in_part():
+    # MIN_REDACTABLE (4) and MIN_REDACTED_RUN (12) are two different floors
+    # and the band between them behaves differently from either side of it:
+    # the whole value goes, fragments of it do not. Measured at exactly 12,
+    # where `len(value) > MIN_REDACTED_RUN` is False.
+    twelve = "abcdefghijkl"
+    assert len(twelve) == oauth.MIN_REDACTED_RUN
+
+    assert oauth._redact("saw %s here" % twelve, [twelve]) == "saw %s here" % oauth.REDACTED
+    # One character short of the whole value: nothing cuts it.
+    assert oauth._redact("saw %s here" % twelve[1:], [twelve]) == "saw bcdefghijkl here"
+
+
+@pytest.mark.parametrize("written,days", [
+    ("2026-08-01", 48),           # the form the message asks for
+    ("20260801", 48),             # ISO basic, accepted by 3.11's parser
+    ("2026-W32-1", 46),           # an ISO week date is a date to fromisoformat
+    ("2026-08-01 12:00:00", 47),  # a space where the T should be
+])
+def test_the_iso_forms_this_accepts_are_pinned_not_assumed(written, days):
+    # The docstring promises "a bare date or any ISO-8601 timestamp".
+    # datetime.fromisoformat on 3.11 - the version every workflow pins - is
+    # broader than that, and this says by how much, so a reader knows which
+    # of these an operator can actually get away with typing.
+    assert oauth.token_age_days(written, today=TODAY) == pytest.approx(days, abs=1.0)
+
+
+def test_the_last_day_of_the_life_warns_with_nothing_left_and_still_works(
+    credentials, monkeypatch, warnings
+):
+    # The rendering at the boundary, not just the decision: an operator
+    # reading "0 DAYS LEFT" while the run still succeeds is the last warning
+    # they get, and the number in it is the one that makes them act.
+    monkeypatch.setenv(oauth.META_TOKEN_ISSUED, issued(59.9))
+
+    assert oauth.meta_token(today=TODAY) == TOKEN
+    assert "60 days old" in warnings[0]
+    assert "0 DAYS LEFT" in warnings[0]
+
+    code, printed = run_status()
+    assert code == 1
+    assert "60 days old, 0 of 60 left" in printed
+
+
+def test_the_first_hours_past_the_life_read_as_expired_zero_days_ago(
+    credentials, monkeypatch
+):
+    monkeypatch.setenv(oauth.META_TOKEN_ISSUED, issued(60.4))
+
+    with pytest.raises(oauth.TokenExpired):
+        oauth.meta_token(today=TODAY)
+
+    code, printed = run_status()
+    assert code == 1
+    assert "60 days old, EXPIRED 0 days ago" in printed
+
+
+def test_a_body_that_is_nothing_but_the_token_is_cut_without_pathology():
+    # _cut_runs extends a match one character at a time. Nothing in the suite
+    # would notice if that became quadratic, and a 400,000-character body is
+    # what a gateway echoing a request back looks like. MEASURED at 0.02s;
+    # the budget here is loose enough not to flake on a slow runner and tight
+    # enough that a quadratic pass could never reach it.
+    #
+    # Every repeat is TRIMMED at both ends and separated, so the whole value
+    # never appears: `str.replace` has nothing to match and _cut_runs is the
+    # only thing doing the work.
+    import time
+
+    body = ("|" + TOKEN[3:-3]) * 8000
+    assert TOKEN not in body
+    started = time.monotonic()
+    scrubbed = oauth._redact(body, [TOKEN])
+    elapsed = time.monotonic() - started
+
+    assert TOKEN[3:-3] not in scrubbed
+    assert TOKEN[3:oauth.MIN_REDACTED_RUN + 3] not in scrubbed
+    assert elapsed < 5.0, "cutting a 400k body took %.1fs" % elapsed

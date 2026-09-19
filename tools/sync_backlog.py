@@ -29,6 +29,11 @@ Refuse rather than guess, and name the fix:
 - a source table `engine/backlog.py` cannot parse is refused BEFORE anything
   is written, with the parser's own message naming the row - this tool never
   commits a table the engine would then choke on;
+- a source row that lost one of its two pipes is refused by line HERE, because
+  the parser does not refuse it: it skips the line and the table arrives a
+  segment short with nothing raised. This is a stopgap on the inbound path,
+  not the fix; the fix is a guard in `engine/backlog.py`, which cannot land on
+  this side alone because that file is a byte-for-byte copy of the sibling's;
 - a local file with no markers, two of them, or the end before the begin, is
   refused with the marker names;
 - a pipe-delimited row OUTSIDE the markers is refused by line, because the
@@ -85,12 +90,33 @@ def is_row(line: str) -> bool:
     return bool(backlog.ROW_RE.match(line.strip()))
 
 
+def half_piped(line: str) -> bool:
+    """A line one pipe short of a row: anchored at one end, not both.
+
+    MEASURED, on a four-row table with the rank-2 row's trailing pipe removed:
+    `backlog.load` returned three segments and raised nothing - `ROW_RE` fails,
+    the parser's loop skips the line, and the backlog silently shrinks. Every
+    other one-character corruption of a row (a cell added, a cell dropped, a
+    non-integer rank) raises by name. Dropping one `|` is the single realistic
+    hand-edit that does not, which is why this tool looks for it by hand.
+
+    Prose is untouched: a sentence carrying a `code | span` is anchored at
+    neither end, and four pipes are required before a line is even considered.
+    """
+    stripped = line.strip()
+    if is_row(stripped) or stripped.count("|") < 4:
+        return False
+    return stripped.startswith("|") or stripped.endswith("|")
+
+
 def source_rows(source: Path) -> list[str]:
     """Every table line of the source, verbatim and in order.
 
     Validated through `backlog.load` first: a malformed row, a missing table
     or a duplicate id is refused here, with the parser's own message, rather
     than being copied into this repository and discovered by the next cron.
+    A row that lost one of its two pipes is refused first and separately,
+    because `backlog.load` is precisely the check that stays quiet about it.
     """
     source = Path(source)
     if not source.is_file():
@@ -99,6 +125,15 @@ def source_rows(source: Path) -> list[str]:
             f"Dasvydo/reel-engine beside this checkout (../reel-engine) or "
             f"point --source at its queue/backlog.md"
         )
+    lines = source.read_text(encoding="utf-8").splitlines()
+    half = [str(i + 1) for i, line in enumerate(lines) if half_piped(line)]
+    if half:
+        raise SyncError(
+            f"{_display(source)} has a row with only one of its two pipes at "
+            f"line {', '.join(half)}; engine/backlog.py skips such a line "
+            f"instead of raising, so the table would arrive here a segment "
+            f"short - restore the missing | in reel-engine"
+        )
     try:
         backlog.load(source)
     except ValueError as exc:
@@ -106,8 +141,7 @@ def source_rows(source: Path) -> list[str]:
             f"{_display(source)} is not a table engine/backlog.py can read "
             f"({exc}); fix the row in reel-engine, nothing was written here"
         ) from exc
-    return [line for line in source.read_text(encoding="utf-8").splitlines()
-            if is_row(line)]
+    return [line for line in lines if is_row(line)]
 
 
 def locate_block(lines: list[str], *, name: str) -> tuple[int, int]:
@@ -153,12 +187,22 @@ def sync(source: Path, target: Path, *, check: bool = False, out=None) -> int:
             f"no local backlog at {_display(target)}; restore it from git "
             f"(it is committed) before syncing"
         )
-    text = target.read_text(encoding="utf-8")
+    # newline="" keeps the target's own line endings; `read_text` would
+    # collapse CRLF to LF on the way in and the rejoin would write LF back
+    # over the whole file, prose included.
+    with target.open(encoding="utf-8", newline="") as handle:
+        text = handle.read()
     lines = text.splitlines()
+    kept = text.splitlines(keepends=True)
     begin, end = locate_block(lines, name=_display(target))
     current = lines[begin + 1:end]
 
-    segments = len(rows) - 2  # header row and separator are not segments
+    # Counted by the parser, not by arithmetic on the layout. MEASURED: a
+    # source with no header and no separator (both optional to
+    # `engine/backlog.py`, which filters them by content) reported "3
+    # segments" and wrote 5; a source carrying a second table reported 9 and
+    # wrote 7; a single row with no header reported -1.
+    segments = len(backlog.load(source))
     if current == rows:
         print(f"{_display(target)} is in sync with {_display(source)} "
               f"({segments} segments); nothing written", file=out)
@@ -176,11 +220,18 @@ def sync(source: Path, target: Path, *, check: bool = False, out=None) -> int:
               f"(nothing written)", file=out)
         return 1
 
-    new_lines = lines[:begin + 1] + rows + lines[end:]
-    new_text = "\n".join(new_lines)
-    if text.endswith("\n") or not text:
-        new_text += "\n"
-    target.write_text(new_text, encoding="utf-8")
+    # Spliced on the lines as they arrived, endings included, so every byte
+    # outside the block survives the write. MEASURED: the old
+    # splitlines/"\n".join round-trip rewrote 11 of 12 line endings in a CRLF
+    # copy of this file, 3 of them in the prose the docstring promises not to
+    # touch. The inserted rows take the begin marker's own ending, so they
+    # match the block they are joining rather than a guess about the file.
+    eol = kept[begin][len(lines[begin]):] or "\n"
+    new_text = ("".join(kept[:begin + 1])
+                + "".join(row + eol for row in rows)
+                + "".join(kept[end:]))
+    with target.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(new_text)
     print(f"synced {segments} segments ({len(rows)} table lines) from "
           f"{_display(source)} into {_display(target)}", file=out)
     return 0

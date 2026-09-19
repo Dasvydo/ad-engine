@@ -1305,3 +1305,161 @@ def test_a_dry_run_prints_the_plan_and_needs_no_token(tmp_path, monkeypatch, cap
     out, err = capsys.readouterr()
     assert out == ""
     assert "1 seeded pages in 1 call(s), 2 queries; 3-6 Ad Library calls" in err
+
+
+# ---------------------------------------------------------------------------
+# The token, and the one promise whose failure is silent and permanent
+#
+# These exist because the promise was BROKEN, in production code, on the
+# default transport, with no test covering it. An independent audit on
+# 2026-09-19 set META_ACCESS_TOKEN to a 200-character sentinel and got 116 and
+# 121 characters of it onto stderr out of main(), and 40 characters into
+# research/selection.json - which .github/workflows/research.yml git-adds and
+# pushes.
+#
+# The cause was two decisions that were each defensible alone. This module
+# truncates Meta's body to 200 characters so an error stays readable, and it
+# kept a LOCAL copy of the redaction that cut whole values only, on the
+# argument that "whole-value is what Meta echoes". Our own truncation is what
+# turns a whole echo into a partial one, so the two together produce a token
+# fragment that the scrubber cannot match.
+# ---------------------------------------------------------------------------
+
+# Long enough that our own body[:200] truncation slices it, which is the
+# shape that defeated the old whole-value replace.
+SENTINEL = "EAA" + "Zq7Kx2Lw9Pv4Nt6Ym1Bd8Rf3Gh5Js0Cn" * 6
+
+
+def test_a_partial_echo_of_the_token_is_cut_out():
+    """Meta echoes the token; we truncate its body; the slice must still go."""
+    body = "Invalid OAuth access token: %s" % SENTINEL
+    cleaned = discover._redact(body[:200], SENTINEL)
+    assert SENTINEL not in cleaned
+    # And no run of the token long enough to be worth having survives either.
+    for start in range(0, len(SENTINEL) - 24):
+        assert SENTINEL[start:start + 24] not in cleaned
+
+
+def test_both_api_error_shapes_survive_the_scrub():
+    """_api_error does NOT scrub - it has no token to scrub with. The cut
+    happens upstream in _scrubbed, which is why the truncation and the
+    redaction have to agree about partial echoes: this function can make the
+    fragment, and that one has to be able to match it.
+
+    Two shapes, and only the second is the one that broke. A well-formed error
+    body carries Meta's own message through whole, so a whole-value replace
+    was enough for it - which is exactly why the local copy looked correct.
+    A body that is not the expected JSON falls back to `body[:200]`, and THAT
+    is where our own truncation slices a ~200-character token into a fragment
+    no whole-value replace can find.
+    """
+    formed = discover._api_error(400, json.dumps(
+        {"error": {"message": "Bad token %s" % SENTINEL, "code": 190,
+                   "type": "OAuthException"}}))
+    assert SENTINEL in formed, "the well-formed path no longer carries it whole"
+
+    sliced = discover._api_error(400, "<html>gateway error %s</html>" % SENTINEL)
+    assert SENTINEL not in sliced, "the fallback no longer truncates"
+    assert SENTINEL[:40] in sliced, "the fallback no longer slices a long token"
+
+    # The scrubber that runs over each of them afterwards removes both.
+    for message in (formed, sliced):
+        cleaned = discover._redact(message, SENTINEL)
+        assert SENTINEL not in cleaned
+        for start in range(0, len(SENTINEL) - 24):
+            assert SENTINEL[start:start + 24] not in cleaned
+
+
+def test_a_transport_that_echoes_the_token_cannot_leak_it(monkeypatch):
+    """The whole path, through the module's own scrubbing wrapper."""
+    def echoes(url, token):
+        raise RuntimeError("upstream said: %s" % SENTINEL)
+
+    client = discover.AdLibraryClient(token=SENTINEL, transport=echoes)
+    with pytest.raises(discover.ApiError) as caught:
+        client.archive(countries=("DK",), search_terms="x")
+    assert SENTINEL not in str(caught.value)
+
+
+def test_a_clean_message_does_not_ride_out_on_a_dirty_chain():
+    """The fresh-object rule.
+
+    `error = exc if clean == str(exc) else type(exc)(clean)` re-used the
+    original whenever its own message needed no scrubbing - and a clean
+    message says nothing about what is chained to it. Here the outer error is
+    spotless and the token is on its __context__.
+    """
+    def dirty():
+        try:
+            raise ValueError("Invalid isoformat string: %r" % SENTINEL)
+        except ValueError:
+            raise discover.ApiError("the Ad Library refused the request")
+
+    with pytest.raises(discover.ApiError) as caught:
+        discover._scrubbed(SENTINEL, dirty)
+
+    error = caught.value
+    assert SENTINEL not in str(error)
+    chain = []
+    seen = error
+    while seen is not None:
+        chain.append(str(seen))
+        seen = seen.__context__ or seen.__cause__
+    assert not any(SENTINEL in link for link in chain), chain
+
+
+def test_ctrl_c_keeps_its_type_and_still_gets_scrubbed():
+    """BaseException is caught - it sails past `except Exception` with its
+    message intact - but rebuilding it as an ApiError would make a hung run
+    need a second Ctrl-C to die."""
+    def interrupted():
+        raise KeyboardInterrupt("aborting while holding %s" % SENTINEL)
+
+    with pytest.raises(KeyboardInterrupt) as caught:
+        discover._scrubbed(SENTINEL, interrupted)
+    assert SENTINEL not in str(caught.value)
+
+
+def test_an_exit_code_survives_the_scrub():
+    """SystemExit(2) rebuilt from a string would exit 1. Args are scrubbed
+    element by element so an integer is left alone."""
+    def exiting():
+        raise SystemExit(2)
+
+    with pytest.raises(SystemExit) as caught:
+        discover._scrubbed(SENTINEL, exiting)
+    assert caught.value.code == 2
+
+
+def test_the_body_is_withheld_rather_than_printed_when_the_scrubber_is_gone(monkeypatch):
+    """Fail closed. engine/oauth.py is imported lazily, so a broken checkout
+    can reach _redact with a token and no scrubber; an unreadable error is
+    recoverable and a leaked credential is not."""
+    import builtins
+    real_import = builtins.__import__
+
+    def no_oauth(name, *args, **kwargs):
+        if name == "engine.oauth" or (args and args[2] and "oauth" in args[2]):
+            raise ImportError("engine.oauth is not in this checkout")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_oauth)
+    cleaned = discover._redact("Bad token %s" % SENTINEL, SENTINEL)
+    assert SENTINEL not in cleaned
+    assert "withheld" in cleaned
+
+
+def test_there_is_one_definition_of_the_cut_in_this_repository():
+    """A second copy of a security primitive is what caused the leak: the copy
+    was made, the original was hardened, and the copy was not. discover
+    delegates to engine.oauth now, so a partial-echo rule added there reaches
+    here without anybody remembering to copy it."""
+    from engine import oauth
+
+    with open(discover.__file__, encoding="utf-8") as handle:
+        source = handle.read()
+    assert "oauth._redact(text, [token])" in source, (
+        "engine/discover.py no longer delegates its redaction; if that is "
+        "deliberate, it must carry oauth's partial-run cut itself"
+    )
+    assert oauth._redact("x %s y" % SENTINEL, [SENTINEL]).find(SENTINEL) == -1

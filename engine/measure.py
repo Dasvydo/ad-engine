@@ -354,9 +354,32 @@ def _scrubbed(token: str, work):
     except QuotaExceededError:
         raise  # carries numbers, never a value; charged before this wrapper
     except MeasureError as exc:
-        error = type(exc)(oauth._redact(str(exc), [token]))
+        clean = oauth._redact(str(exc), [token])
+        try:
+            error = type(exc)(clean)
+        except TypeError:
+            # A subclass carrying its own __init__ signature. Rebuilding it
+            # from one string is a TypeError, and an uncaught one HERE would
+            # escape the scrubber with the original exception as its
+            # __context__ - the leak this wrapper exists to prevent, arriving
+            # through the wrapper itself. Still a MeasureError, still scrubbed.
+            error = ApiError(clean)
     except Exception as exc:
         error = ApiError(oauth._redact(f"{type(exc).__name__}: {exc}", [token]))
+    except BaseException as exc:  # noqa: BLE001 - deliberate
+        # KeyboardInterrupt, SystemExit and asyncio.CancelledError derive from
+        # BaseException and sail past `except Exception` with their messages
+        # and their chains intact. Scrubbed argument by argument and KEEPING
+        # their own type, so SystemExit(2) keeps its exit code and Ctrl-C
+        # still kills the run on the first press.
+        cleaned = tuple(
+            oauth._redact(arg, [token]) if isinstance(arg, str) else arg
+            for arg in exc.args
+        )
+        try:
+            error = type(exc)(*cleaned)
+        except TypeError:
+            error = type(exc)()
     raise error
 
 

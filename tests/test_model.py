@@ -112,6 +112,112 @@ def test_messages_are_folded_into_one_prompt():
 
 
 # ---------------------------------------------------------------------------
+# Why a call ended. Against a REAL types.GenerateContentResponse and not a
+# SimpleNamespace, because the fake is shaped the way we BELIEVE the SDK is
+# shaped: `.text` really is None when a candidate carried no parts, and a
+# prompt refused before generation really does come back with no candidates at
+# all. Offline - constructing a response object talks to nothing.
+# ---------------------------------------------------------------------------
+
+
+def real_response(*, text=None, finish="STOP", prompt_block=None):
+    """The SDK's own response object, built by hand."""
+    from google.genai import types as genai_types
+
+    if prompt_block is not None:
+        return genai_types.GenerateContentResponse(
+            candidates=[],
+            prompt_feedback=genai_types.GenerateContentResponsePromptFeedback(
+                block_reason=getattr(genai_types.BlockedReason, prompt_block)))
+    content = None
+    if text is not None:
+        content = genai_types.Content(
+            role="model", parts=[genai_types.Part(text=text)])
+    return genai_types.GenerateContentResponse(candidates=[
+        genai_types.Candidate(
+            content=content,
+            finish_reason=getattr(genai_types.FinishReason, finish))])
+
+
+class OneResponse:
+    """models.generate_content, answering with one prepared response."""
+
+    def __init__(self, response):
+        self._response = response
+
+    def generate_content(self, *, model, contents, config):
+        return self._response
+
+
+def send(response):
+    return client_over(OneResponse(response)).messages.create(
+        model="m", max_tokens=64, messages=[{"role": "user", "content": "hi"}])
+
+
+def test_a_real_sdk_response_reads_the_same_as_the_fake_one():
+    """The premise the adapter tests rest on, pinned against the real type so
+    a change in the SDK's `.text` goes red here rather than in a live run."""
+    reply = send(real_response(text='{"pass": true}'))
+    assert text_of(reply) == '{"pass": true}'
+    assert reply.stop_reason == "end_turn"
+
+
+def test_a_real_max_tokens_response_is_still_max_tokens():
+    reply = send(real_response(text='{"pass"', finish="MAX_TOKENS"))
+    assert reply.stop_reason == "max_tokens"
+
+
+def test_a_candidate_with_no_parts_has_no_text_at_all():
+    """`.text` is None, not "". Every blocked reply is this shape."""
+    assert send(real_response(finish="SAFETY")).content[0].text == ""
+
+
+@pytest.mark.parametrize(
+    "finish,expected",
+    [("SAFETY", "blocked:safety"),
+     ("RECITATION", "blocked:recitation"),
+     ("PROHIBITED_CONTENT", "blocked:prohibited_content"),
+     ("BLOCKLIST", "blocked:blocklist")])
+def test_a_suppressed_answer_says_the_provider_suppressed_it(finish, expected):
+    """The defect this closes: every one of these arrived as end_turn with
+    text '' - the exact shape of a model that answered normally with nothing
+    in it - so the writer refusing a segment on safety grounds reached the
+    operator as `could not parse JSON from the model: ''`, which points at the
+    prompt's formatting. The reason was on the response object the whole time.
+    """
+    reply = send(real_response(finish=finish))
+    assert reply.stop_reason == expected
+
+
+def test_a_prompt_refused_before_generation_is_not_an_empty_answer():
+    """No candidates at all, which is what a prompt-level block returns."""
+    reply = send(real_response(prompt_block="SAFETY"))
+    assert reply.stop_reason == "blocked:prompt:safety"
+
+
+def test_a_prompt_block_without_a_stated_reason_is_still_blocked():
+    reply = send(real_response(prompt_block="BLOCKED_REASON_UNSPECIFIED"))
+    assert reply.stop_reason.startswith("blocked:prompt")
+
+
+def test_every_suppressed_stop_is_recognisable_as_one_family():
+    """A call site branches on the family - `startswith("blocked:")` - rather
+    than listing a provider enum that grows."""
+    for finish in ("SAFETY", "RECITATION", "PROHIBITED_CONTENT", "BLOCKLIST"):
+        assert send(real_response(finish=finish)).stop_reason.startswith("blocked:")
+    assert not send(real_response(text="hi")).stop_reason.startswith("blocked:")
+    assert not send(
+        real_response(text="hi", finish="MAX_TOKENS")).stop_reason.startswith("blocked:")
+
+
+def test_a_response_with_text_but_no_candidates_is_an_ordinary_answer():
+    """An older stub answers with candidates=[] and real text. That is not a
+    blocked prompt - a blocked prompt has nothing to read."""
+    response = types.SimpleNamespace(text="hello", candidates=[])
+    assert send(response).stop_reason == "end_turn"
+
+
+# ---------------------------------------------------------------------------
 # The key.
 # ---------------------------------------------------------------------------
 
@@ -159,6 +265,23 @@ def test_an_empty_key_counts_as_unset(monkeypatch):
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     with pytest.raises(ConfigError, match="GEMINI_API_KEY"):
         model.client()
+
+
+def test_a_whitespace_only_key_counts_as_unset(monkeypatch):
+    """It is truthy, so without stripping it builds a client, opens a socket
+    and comes back 401 - which reads as "your key is wrong" and sends the
+    operator to aistudio to mint another one, when the fault is here."""
+    monkeypatch.setenv("GEMINI_API_KEY", "   \n")
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    assert model.api_key() is None
+    with pytest.raises(ConfigError, match="GEMINI_API_KEY"):
+        model.client()
+
+
+def test_a_key_pasted_with_a_trailing_newline_still_works(monkeypatch):
+    """How a key arrives out of a file, a secret or a clipboard."""
+    monkeypatch.setenv("GEMINI_API_KEY", "  k-123\n")
+    assert model.api_key() == "k-123"
 
 
 def test_the_key_value_never_reaches_an_error_message(monkeypatch):
@@ -294,6 +417,59 @@ def test_a_missing_file_says_where_a_creative_comes_from(tmp_path):
     client, _ = _transport()
     with pytest.raises(ValueError, match="research/media"):
         _send(client, {"kind": "local-file", "ref": str(tmp_path / "gone.mp4")})
+
+
+def test_a_symlinked_creative_is_followed(tmp_path):
+    """An operator keeping creatives on an external disk and linking them in
+    is not doing anything wrong, and is.is_file() follows the link."""
+    real = tmp_path / "elsewhere.mp4"
+    real.write_bytes(b"\x00video")
+    link = tmp_path / "fb-7.mp4"
+    link.symlink_to(real)
+    client, inner = _transport()
+    _send(client, {"kind": "local-file", "ref": str(link)})
+    assert inner.models.contents[1].inline_data.data == b"\x00video"
+
+
+def test_a_dangling_symlink_is_refused_like_a_missing_file(tmp_path):
+    """The external disk is not mounted. That is the missing-file message,
+    not an OSError from read_bytes."""
+    link = tmp_path / "fb-8.mp4"
+    link.symlink_to(tmp_path / "never-existed.mp4")
+    client, _ = _transport()
+    with pytest.raises(ValueError, match="no media file at"):
+        _send(client, {"kind": "local-file", "ref": str(link)})
+
+
+def test_a_directory_named_like_a_clip_is_refused(tmp_path):
+    """A .mp4 that is a folder - an unpacked bundle, a sync artefact - is not
+    a creative, and is_file() is the check that says so before read_bytes
+    raises IsADirectoryError."""
+    (tmp_path / "fb-9.mp4").mkdir()
+    client, _ = _transport()
+    with pytest.raises(ValueError, match="no media file at"):
+        _send(client, {"kind": "local-file", "ref": str(tmp_path / "fb-9.mp4")})
+
+
+def test_a_relative_media_ref_is_resolved_against_the_PROCESS_CWD(tmp_path, monkeypatch):
+    """Pinned because it is a dependence, not a feature: research/media/fb-1.mp4
+    is found when the run starts in the repository root and not otherwise, and
+    every other media test here uses an absolute tmp_path, so nothing else in
+    the suite would notice if that changed."""
+    media = tmp_path / "research" / "media"
+    media.mkdir(parents=True)
+    (media / "fb-1.mp4").write_bytes(b"\x00video")
+    ref = "research/media/fb-1.mp4"
+
+    monkeypatch.chdir(tmp_path)
+    client, inner = _transport()
+    _send(client, {"kind": "local-file", "ref": ref})
+    assert inner.models.contents[1].inline_data.data == b"\x00video"
+
+    monkeypatch.chdir(tmp_path / "research")
+    client, _ = _transport()
+    with pytest.raises(ValueError, match="no media file at"):
+        _send(client, {"kind": "local-file", "ref": ref})
 
 
 def test_a_media_entry_without_a_ref_is_refused():
@@ -561,6 +737,19 @@ def test_a_rate_limit_is_not_a_capacity_error():
     assert not isinstance(info.value, CapacityError)
 
 
+def test_a_retired_model_id_says_how_to_re_pin_it():
+    """The future MODEL_FLASH's own comment tells the operator to expect:
+    gemini-2.5-flash already 404s for a new key. Without this the answer is a
+    google.genai traceback mid-run, which reads like the engine broke - the
+    exact failure this module's docstring says it exists to convert."""
+    client = raising(client_error(404, "models/gemini-3.5-flash is not found",
+                                  "NOT_FOUND"))
+    with pytest.raises(ConfigError, match="gemini-3.5-flash") as info:
+        call_model(client, model=model.MODEL_FLASH, max_tokens=1, messages=[])
+    assert "models.yml" in str(info.value)
+    assert not isinstance(info.value, CapacityError)
+
+
 def test_an_ordinary_client_error_still_raises():
     """A malformed request is a bug. It keeps its traceback."""
     client = raising(client_error(400, "max_output_tokens must be > 0", "INVALID_ARGUMENT"))
@@ -673,6 +862,42 @@ def test_first_json_object_survives_a_stray_brace_in_trailing_prose():
     assert first_json_object(text) == {"a": 1}
 
 
+def test_first_json_object_survives_a_stray_brace_in_LEADING_prose():
+    """The case that cost a passing verdict. The greedy match this used to do
+    began at the FIRST brace in the string - the one in the prose - and ran to
+    the last, so both it and the decode-from-there fallback read the prose
+    instead of the object. The gate's own rubric ends by showing the model a
+    {"pass": ...} template, so a judge echoing the shape it was asked for is
+    the likely input, not an exotic one."""
+    text = ('I checked every hard failure {none found} and the claims list.\n'
+            '{"pass": true}')
+    assert first_json_object(text) == {"pass": True}
+
+
+def test_first_json_object_finds_the_object_past_a_format_hint_and_a_fence():
+    text = 'Answer in the shape {"pass": bool}:\n```json\n{"pass": false}\n```\n'
+    assert first_json_object(text) == {"pass": False}
+
+
+def test_first_json_object_skips_an_empty_object_before_the_real_one():
+    """Worse than None, which is what this returned: a call site checking
+    `is None` walks on holding nothing. engine/gate.py survived it only
+    through its own separate "pass" not in verdict check; the four other call
+    sites have no second guard."""
+    assert first_json_object('{ }{"pass": true}') == {"pass": True}
+
+
+def test_an_answer_that_is_only_an_empty_object_still_reads_as_one():
+    """Skipping empties is for the SCAN. A model that answered exactly `{}`
+    said so, and that is not this function's to reinterpret."""
+    assert first_json_object("{}") == {}
+    assert first_json_object("  {}  ") == {}
+
+
+def test_first_json_object_takes_the_FIRST_object_when_there_are_two():
+    assert first_json_object('{"a": 1} then {"b": 2}') == {"a": 1}
+
+
 def test_first_json_object_is_none_for_no_object():
     assert first_json_object("no json here") is None
     assert first_json_object("") is None
@@ -754,12 +979,122 @@ def test_json_reply_carries_a_stop_reason():
     assert json_reply({}).stop_reason == "end_turn"
 
 
-def test_stub_media_lists_what_a_call_attached():
+def test_stub_media_lists_what_a_call_attached(tmp_path):
+    """A REAL file, because the stub now runs the same validation the client
+    runs. This test used to attach research/media/fb-1.mp4, which has never
+    existed - the one call in the whole suite that the live client would have
+    refused."""
+    clip = tmp_path / "fb-1.mp4"
+    clip.write_bytes(b"\x00video")
     client = StubClient([text_reply("ok")])
     client.messages.create(model="m", max_tokens=1, messages=[
         {"role": "user", "content": "look",
-         "media": {"kind": "local-file", "ref": "research/media/fb-1.mp4"}}])
-    assert client.media(0) == [{"kind": "local-file", "ref": "research/media/fb-1.mp4"}]
+         "media": {"kind": "local-file", "ref": str(clip)}}])
+    assert client.media(0) == [{"kind": "local-file", "ref": str(clip)}]
+
+
+# --- the stub refuses what the client refuses --------------------------------
+#
+# MEASURED before this existed: thirteen call shapes GeminiClient raises on -
+# a missing keyword argument, a content that is not a string, messages that is
+# not a list of dicts, and every invalid media entry - the stub waved through.
+# Replaying the whole suite with the real client shadowing every stubbed call
+# found exactly ONE call in ~1,600 that the live client would have refused, and
+# it was this file's own media test. The stub was not testing a fiction;
+# nothing stopped it starting to, and the first symptom would have been a green
+# suite over a call that cannot work live.
+
+
+@pytest.mark.parametrize("missing", ["model", "max_tokens", "messages"])
+def test_the_stub_requires_the_arguments_the_client_requires(missing):
+    kwargs = {"model": "m", "max_tokens": 1, "messages": []}
+    kwargs.pop(missing)
+    with pytest.raises(TypeError, match=missing):
+        StubClient([text_reply("ok")]).messages.create(**kwargs)
+
+
+def test_the_stub_folds_content_the_way_the_client_folds_it():
+    """A non-string content is a TypeError from the join, live and here."""
+    client = StubClient([text_reply("ok")])
+    with pytest.raises(TypeError):
+        client.messages.create(model="m", max_tokens=1,
+                               messages=[{"role": "user", "content": ["a"]}])
+
+
+def test_the_stub_refuses_messages_that_are_not_a_list_of_dicts():
+    client = StubClient([text_reply("ok"), text_reply("ok")])
+    with pytest.raises(AttributeError):
+        client.messages.create(model="m", max_tokens=1, messages=["hi"])
+    with pytest.raises(TypeError):
+        client.messages.create(model="m", max_tokens=1, messages=None)
+
+
+@pytest.mark.parametrize("media,match", [
+    ({"kind": "local-file", "ref": "research/media/never-saved.mp4"},
+     "no media file at"),
+    ({"kind": "local-file"}, "ref"),
+    ({"kind": "telepathy", "ref": "x"}, "unknown media kind"),
+])
+def test_the_stub_refuses_a_media_entry_the_client_would_refuse(media, match):
+    """The failure this closes: a test stubs a creative that was never saved,
+    asserts .media(0) recorded it, and goes green - while the live run raises
+    before a socket and the candidate is skipped."""
+    client = StubClient([text_reply("ok")])
+    with pytest.raises(ValueError, match=match):
+        client.messages.create(model="m", max_tokens=1, messages=[
+            {"role": "user", "content": "look", "media": media}])
+
+
+def test_the_stub_refuses_a_creative_with_a_suffix_the_client_cannot_send(tmp_path):
+    gif = tmp_path / "fb-1.gif"
+    gif.write_bytes(b"GIF89a")
+    client = StubClient([text_reply("ok")])
+    with pytest.raises(ValueError, match="fb-1.gif"):
+        client.messages.create(model="m", max_tokens=1, messages=[
+            {"role": "user", "content": "look",
+             "media": {"kind": "local-file", "ref": str(gif)}}])
+
+
+def test_the_stub_refuses_a_creative_too_big_to_send_inline(tmp_path):
+    clip = tmp_path / "long.mp4"
+    clip.write_bytes(b"\x00" * (model.INLINE_LIMIT + 1))
+    client = StubClient([text_reply("ok")])
+    with pytest.raises(ValueError, match="File API"):
+        client.messages.create(model="m", max_tokens=1, messages=[
+            {"role": "user", "content": "look",
+             "media": {"kind": "local-file", "ref": str(clip)}}])
+
+
+def test_a_real_creative_still_goes_straight_through(tmp_path):
+    """The validation refuses, it does not get in the way: a saved creative
+    reaches the queue exactly as before, and the reply is the queued one."""
+    clip = tmp_path / "fb-1.mp4"
+    clip.write_bytes(b"\x00video")
+    client = StubClient([text_reply("ok")])
+    reply = client.messages.create(model="m", max_tokens=1, messages=[
+        {"role": "user", "content": "look",
+         "media": {"kind": "local-file", "ref": str(clip)}}])
+    assert text_of(reply) == "ok"
+    assert client.media(0)[0]["ref"] == str(clip)
+    assert client.remaining == 0
+
+
+def test_a_file_uri_needs_no_file_on_disk():
+    """The File API kind refers to something already uploaded; validating it
+    must not start demanding a local copy."""
+    client = StubClient([text_reply("ok")])
+    client.messages.create(model="m", max_tokens=1, messages=[
+        {"role": "user", "content": "look",
+         "media": {"kind": "file-uri",
+                   "ref": "https://generativelanguage.googleapis.com/v1beta/files/abc"}}])
+    assert client.remaining == 0
+
+
+def test_a_bare_string_of_replies_is_refused_rather_than_split_into_letters():
+    """list('hello') is five one-character replies and the code under test
+    reads 'h', which text_of turns into ''. A silent queue of nonsense."""
+    with pytest.raises(TypeError, match="text_reply"):
+        StubClient("hello")
 
 
 def test_the_stub_imports_no_provider():

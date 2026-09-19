@@ -59,23 +59,39 @@ Not in a log line, not in a summary, not in an error message, not in
 Two mechanisms enforce it. First, no value is ever interpolated into a
 message - the code has nowhere to leak from. Second, `_never_leak` wraps the
 public entry point and scrubs the token, whole or in part, out of ANYTHING it
-raises. That second line matters for one mistake in particular: the token
+raises. That second line matters for one mistake in particular: a CREDENTIAL
 pasted into the DATE variable's box, which is the kind of thing that happens
 in the very screen where both are set. A date parser's own error echoes what
 it was given, so `token_age_days` raises its refusal outside the handler
-(nothing chained), never echoes a value longer than a date can be, and
-`_never_leak` cuts the value out of whatever survives. Belt and braces,
-because the failure here is silent and permanent: a token in a public Actions
-log is a token an attacker has.
+(nothing chained), and echoes an unreadable value back only when it is short
+enough AND shaped like a typo rather than a credential (`_looks_opaque`).
+
+That shape rule is load-bearing on its own, not belt to `_never_leak`'s
+braces, and the distinction was learned the hard way: `_never_leak` scrubs
+the values it is GIVEN, which is the access token and nothing else. When the
+value in the wrong box is a different credential - the 32-character Meta app
+secret from the same dashboard, say - the scrub list has nothing to cut it
+against, and before `_looks_opaque` existed `--status` printed it in full
+into the Actions job log. The failure here is silent and permanent: a
+credential in a public Actions log is a credential an attacker has.
 
 ## The scrub is for the consumers too
 
 `engine/discover.py` and `engine/measure.py` put the token in an
 `Authorization: Bearer` header, and a transport that fails can raise with a
 URL, a header or a body in its message - `http.client` itself does, on a
-malformed header value. `_never_leak([token], work)` around the call is how a
-consumer keeps that promise: every exception `work` raises comes back as an
-`OAuthError` subclass with the value cut out, and nothing is chained onto it.
+malformed header value. Each consumer wraps its transport in a local
+`_scrubbed(token, work)` of its own rather than calling `_never_leak`, which
+is this module's own wrapper and has no call site anywhere else. What has to
+hold is that they all cut with the SAME definition of a leak, which is why
+`engine/measure.py` calls `_redact` here instead of keeping a copy of it.
+
+A consumer that keeps its own copy drifts, and the drift is invisible until
+it is measured: a whole-value-only copy passes a 32-character slice of the
+token through untouched where `_redact` cuts it, and Meta echoes slices. So
+whether a consumer delegates is that consumer's own file to answer for, and
+this docstring no longer claims that they do - it used to, and one of them
+did not.
 """
 from __future__ import annotations
 
@@ -146,6 +162,13 @@ FUTURE_SLACK_DAYS = 1.0
 # is the token, pasted into the wrong box, and echoing "the first 40
 # characters of it" back would be a leak. So an unreadable value is echoed
 # only when it is short enough to be a date, and described by length otherwise.
+#
+# Length ALONE is not enough, and that was measured rather than reasoned:
+# a Meta app secret is exactly 32 hexadecimal characters, so it sat on the
+# permissive side of this ceiling and `--status` printed it in full. It is the
+# other credential on the same Meta dashboard the rotation steps send the
+# operator to, one box over from this one. See _looks_opaque for the second
+# half of the rule, which is what actually separates a credential from a typo.
 MAX_DATE_CHARS = 32
 
 REDACTED = "<redacted>"
@@ -241,6 +264,35 @@ def _cut_runs(text: str, value: str) -> str:
     return "".join(out)
 
 
+def _looks_opaque(text: str) -> bool:
+    """True when `text` carries an unbroken alphanumeric run long enough to be
+    a credential rather than a mistyped date.
+
+    MEASURED against the values an operator actually holds on the two screens
+    this module names: a Meta app secret is 32 hexadecimal characters, a
+    long-lived access token about 200, GEMINI_API_KEY 39 - every one of them a
+    single unbroken run of letters and digits. Every date a human writes has a
+    separator inside it before it gets that long: "2026-13-45", "01/08/2026",
+    "1 August 2026", "last tuesday", "60", "whenever". So the floor already
+    used for cutting partial echoes, MIN_REDACTED_RUN, tells the two apart -
+    and it does it without depending on a length ceiling, which a short
+    credential walks straight through.
+
+    The cost is honest and small: a typo written as one long word
+    ("August012026") is described by length instead of quoted back. The
+    message still names the variable and says what to type.
+    """
+    run = 0
+    for char in text:
+        if char.isalnum():
+            run += 1
+            if run >= MIN_REDACTED_RUN:
+                return True
+        else:
+            run = 0
+    return False
+
+
 def _never_leak(values, work):
     """Run `work()`; scrub `values` out of anything it raises. Returns its value.
 
@@ -252,8 +304,22 @@ def _never_leak(values, work):
     consumer's transport call, which is arbitrary code and may raise anything,
     with anything in it; and "this raises only OAuthError subclasses" is a far
     easier promise to rely on than a list of what else might escape. An
-    OAuthError keeps its own type, scrubbed; anything else becomes a plain
-    OAuthError that names the original type so the diagnosis survives.
+    OAuthError keeps its own type, scrubbed; any other Exception becomes a
+    plain OAuthError that names the original type so the diagnosis survives.
+
+    BELOW Exception the promise is narrower, and saying so precisely is the
+    point. KeyboardInterrupt, SystemExit and asyncio.CancelledError derive
+    from BaseException, and `except Exception` sails past all three - measured:
+    an asyncio-timeout transport, an ordinary thing to write against the seam
+    this wrapper exists for, raises CancelledError, and its message and its
+    `__context__` came out with the token in them. So they are caught too, but
+    they KEEP THEIR OWN TYPE: turning Ctrl-C into an OAuthError would make a
+    hung run need a second Ctrl-C to die, and rebuilding SystemExit from a
+    string would turn `SystemExit(2)` into exit status 1. The args are
+    scrubbed element by element instead, which leaves an integer exit code
+    alone, and the replacement is raised out here like every other, so the
+    unscrubbed original goes with the chain. A caller's `except OAuthError`
+    does not catch these, and should not: an abort is not a credential problem.
 
     The replacement is ALWAYS a fresh object, raised AFTER the except block,
     and both halves of that are load-bearing rather than stylistic. Raising
@@ -276,6 +342,17 @@ def _never_leak(values, work):
             error = OAuthError(clean)
     except Exception as exc:
         error = OAuthError(_redact("%s: %s" % (type(exc).__name__, exc), values))
+    except BaseException as exc:  # noqa: BLE001 - deliberate; see above
+        try:
+            error = type(exc)(*(
+                _redact(arg, values) if isinstance(arg, str) else arg
+                for arg in exc.args
+            ))
+        except Exception:
+            # A subclass that will not take its own args back. Converting is
+            # the safe direction: a scrubbed OAuthError beats whatever that
+            # object was still carrying.
+            error = OAuthError(_redact("%s: %s" % (type(exc).__name__, exc), values))
     raise error
 
 
@@ -380,7 +457,11 @@ def token_age_days(issued: str, today: datetime | None = None) -> float:
     ValueError: an unset date and a mistyped one need the same fix, in the
     same screen, and one error message serves both. The refusal is raised
     outside the parser's except block, so the parser's own error - which
-    echoes the whole value it was given - is not chained onto it.
+    echoes the whole value it was given - is not chained onto it, and the
+    value is quoted back only when it is short enough AND shaped like a typo
+    rather than a credential (MAX_DATE_CHARS and _looks_opaque). Anything else
+    is described by its length, which is all an operator needs to recognise
+    what they pasted.
     """
     text = (issued or "").strip()
     if not text:
@@ -393,11 +474,11 @@ def token_age_days(issued: str, today: datetime | None = None) -> float:
     except ValueError:
         pass
     if moment is None:
-        if len(text) <= MAX_DATE_CHARS:
+        if len(text) <= MAX_DATE_CHARS and not _looks_opaque(text):
             what = "%r" % text
         else:
-            what = ("a %d-character value that is not a date (a token pasted "
-                    "into the wrong box?)" % len(text))
+            what = ("a %d-character value (a credential pasted into the wrong "
+                    "box?)" % len(text))
         raise MissingCredential(
             "%s is %s, which is not a date this can read. Write the day the "
             "token was issued as YYYY-MM-DD, for example 2026-08-01. %s"
@@ -594,7 +675,11 @@ def main(argv=None) -> int:
     except OAuthError as exc:
         # status() answers every case it knows with a line and an exit code;
         # this is the one except clause a caller of this module ever needs.
-        print(str(exc), file=sys.stderr)
+        # Scrubbed on the way out even though an OAuthError from this module
+        # never carries a value: this is the last line before a job log, and
+        # nothing downstream masks a repository variable.
+        token = os.environ.get(META_ACCESS_TOKEN)
+        print(_redact(str(exc), [token] if token else []), file=sys.stderr)
         return 1
 
 

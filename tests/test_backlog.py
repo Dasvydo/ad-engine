@@ -459,3 +459,295 @@ def test_the_cli_surface_is_source_and_check_only():
     with pytest.raises(SystemExit) as excinfo:
         main(["--help"], out=out)
     assert excinfo.value.code == 0
+
+
+# --- the shapes nobody had pinned -------------------------------------------
+#
+# Everything below was written after an audit found five confirmed defects in
+# this module and a list of behaviours - correct and incorrect - that no test
+# held still. Each test here was mutation-checked: the guard it names was
+# broken in a scratch copy, the test was watched to fail, and the guard was
+# restored.
+
+
+HALF_PIPED_SOURCE = SOURCE_TEXT.replace(
+    "| 2 | payroll-bureaus | Payroll bureaus | payslip, holiday, tax-code | strongest |",
+    "| 2 | payroll-bureaus | Payroll bureaus | payslip, holiday, tax-code | strongest",
+)
+
+
+def test_the_parser_refuses_a_row_missing_a_pipe(tmp_path):
+    """docs/CONTRACTS.md: 'Refuse rather than guess ... each is named and
+    refused.' A half-record is on that list.
+
+    This was a strict xfail until 2026-09-19: the fix is in engine/backlog.py,
+    which CONTRACTS.md requires to stay byte-identical to reel-engine's, so it
+    had to land THERE first and be copied here. It did, and the strict marker
+    is what said so - an xfail that starts passing is a failure, which is the
+    only reason anybody looked."""
+    p = tmp_path / "half.md"
+    p.write_text(SAMPLE.replace("| docs, eta, quote | shipped |",
+                                "| docs, eta, quote | shipped"), encoding="utf-8")
+    with pytest.raises(ValueError, match="malformed backlog row"):
+        load(p)
+
+
+def test_the_parser_refuses_a_blank_segment_id(tmp_path):
+    """docs/CONTRACTS.md names 'a blank id' first among what must be refused.
+
+    Today load() accepts it, next_unused() returns it (a blank can never be in
+    used_ids(), so it blocks rank 1 for good), and the run stops several files
+    later in engine/write.py with 'pass a queue/backlog.md row ... or its id' -
+    advice that blames the caller for passing exactly that, and names neither
+    this file nor the line."""
+    p = tmp_path / "blank.md"
+    p.write_text(SAMPLE.replace("| 1 | insurance-brokers |", "| 1 |  |"),
+                 encoding="utf-8")
+    with pytest.raises(ValueError, match="id"):
+        load(p)
+
+
+def test_a_whitespace_only_id_is_refused_too(tmp_path):
+    """Cells are stripped, so "   " and "" are the same thing to the parser.
+
+    This test used to assert the OPPOSITE - that a blank id loaded fine and
+    came back from next_unused() as the top-ranked candidate, blocking rank 1
+    for good because a blank can never appear in used_ids(). That was a
+    measurement of the defect, kept beside the xfail. The defect is fixed, so
+    the measurement is now the refusal."""
+    p = tmp_path / "blank.md"
+    p.write_text(SAMPLE.replace("| 1 | insurance-brokers |", "| 1 |     |"),
+                 encoding="utf-8")
+    with pytest.raises(ValueError, match="id cell is empty"):
+        load(p)
+
+
+def test_a_half_piped_source_row_is_refused_by_line(local, source):
+    """The inbound gate: the one hand-edit accident the parser does not catch.
+
+    Refused before anything is written, in both modes, with the line number
+    and the missing character named."""
+    source.write_text(HALF_PIPED_SOURCE, encoding="utf-8")
+    before = local.read_bytes()
+    expected_line = HALF_PIPED_SOURCE.splitlines().index(
+        "| 2 | payroll-bureaus | Payroll bureaus | payslip, holiday, tax-code | strongest"
+    ) + 1
+    for flags in ([], ["--check"]):
+        err = io.StringIO()
+        code = main(["--source", str(source), *flags], target=local,
+                    out=io.StringIO(), err=err)
+        assert code == 2
+        message = err.getvalue()
+        assert f"only one of its two pipes at line {expected_line}" in message
+        assert "restore the missing |" in message
+    assert local.read_bytes() == before
+
+
+def test_a_source_row_missing_its_leading_pipe_is_refused_too(local, source):
+    source.write_text(
+        SOURCE_TEXT.replace("| 1 | accountants |", "1 | accountants |"),
+        encoding="utf-8",
+    )
+    err = io.StringIO()
+    assert main(["--source", str(source)], target=local,
+                out=io.StringIO(), err=err) == 2
+    assert "only one of its two pipes" in err.getvalue()
+
+
+def test_the_half_piped_check_leaves_prose_alone(local, tmp_path):
+    """The guard must not refuse prose, or it would refuse this repository's
+    own backlog header, which carries a `code | span`. Four pipes are required
+    AND one end must be anchored; a sentence is anchored at neither."""
+    src = tmp_path / "prosey.md"
+    src.write_text(
+        "Run `a | b | c | d | e` to see the five cells. Not a row.\n"
+        "Nor is this: rank | id | trade | questions | note\n"
+        "\n" + SOURCE_TEXT,
+        encoding="utf-8",
+    )
+    assert sync(src, local, out=io.StringIO()) == 0
+    assert _block(local) == SOURCE_ROWS
+
+
+def test_an_indented_row_outside_the_markers_is_refused_by_line(local, source):
+    """A four-space indent is a code block to every markdown reader and a data
+    row to the parser, which strips the line before matching. The stray-row
+    check strips too, so the local side refuses it rather than shipping a
+    documentation example as segment 99."""
+    text = LOCAL_TEMPLATE.replace(
+        "Prose below the block.",
+        "    | 99 | example | Example | one, two, three | doc only |\n"
+        "Prose below the block.",
+    )
+    local.write_text(text, encoding="utf-8")
+    before = local.read_bytes()
+    err = io.StringIO()
+    assert main(["--source", str(source)], target=local,
+                out=io.StringIO(), err=err) == 2
+    assert "outside the markers at line" in err.getvalue()
+    assert local.read_bytes() == before
+
+
+def test_the_count_is_the_parsers_count_not_a_guess_about_the_layout(local, tmp_path):
+    """`len(rows) - 2` assumed exactly one header and one separator. The parser
+    requires neither - it filters both by content, wherever they appear - so
+    the assumption was wrong in both directions."""
+    headerless = tmp_path / "headerless.md"
+    headerless.write_text(
+        "| 1 | accountants | Accountants | a, b, c | one |\n"
+        "| 2 | payroll-bureaus | Payroll | d, e, f | two |\n"
+        "| 3 | bookkeepers | Book | g, h, i | three |\n",
+        encoding="utf-8",
+    )
+    out = io.StringIO()
+    assert sync(headerless, local, out=out) == 0
+    assert "synced 3 segments (3 table lines)" in out.getvalue()
+    assert len(load(local)) == 3
+
+    two_tables = tmp_path / "two.md"
+    two_tables.write_text(
+        SOURCE_TEXT + "\n| rank | id | trade | questions | note |\n"
+        "|---|---|---|---|---|\n"
+        "| 90 | letting-agents | Letting agents | a, b, c | unparked |\n",
+        encoding="utf-8",
+    )
+    out = io.StringIO()
+    assert sync(two_tables, local, out=out) == 0
+    assert "synced 3 segments (7 table lines)" in out.getvalue()
+    assert len(load(local)) == 3
+
+
+def test_the_in_sync_line_counts_segments_the_same_way(local, tmp_path):
+    """Both success lines carry the number, so both had to be corrected."""
+    headerless = tmp_path / "headerless.md"
+    headerless.write_text(
+        "| 1 | accountants | Accountants | a, b, c | one |\n"
+        "| 2 | payroll-bureaus | Payroll | d, e, f | two |\n",
+        encoding="utf-8",
+    )
+    assert sync(headerless, local, out=io.StringIO()) == 0
+    out = io.StringIO()
+    assert sync(headerless, local, out=out) == 0
+    assert "(2 segments); nothing written" in out.getvalue()
+
+
+CRLF_LOCAL = LOCAL_TEMPLATE.replace("\n", "\r\n")
+
+
+def test_load_reads_a_crlf_backlog(tmp_path):
+    p = tmp_path / "crlf.md"
+    p.write_bytes(SAMPLE.replace("\n", "\r\n").encode("utf-8"))
+    assert [s.id for s in load(p)] == [
+        "insurance-brokers", "freight-forwarders", "letting-agents",
+    ]
+    assert load(p)[0].note == "worked example"  # no stray \r on the last cell
+
+
+def test_a_write_keeps_the_local_files_own_line_endings(tmp_path, source):
+    """The docstring's promise - 'Nothing outside the markers is touched' - was
+    false for any file that was not already LF: reading with universal
+    newlines and rejoining with "\\n" rewrote every ending in the file. The
+    splice now works on the lines as they arrived."""
+    p = tmp_path / "queue" / "backlog.md"
+    p.parent.mkdir()
+    p.write_bytes(CRLF_LOCAL.encode("utf-8"))
+    before = p.read_bytes()
+    assert sync(source, p, out=io.StringIO()) == 0
+
+    after = p.read_bytes()
+    replaced = len(LOCAL_TEMPLATE.splitlines()[
+        LOCAL_TEMPLATE.splitlines().index(BEGIN) + 1:
+        LOCAL_TEMPLATE.splitlines().index(END)
+    ])
+    assert after.count(b"\r\n") == before.count(b"\r\n") - replaced + len(SOURCE_ROWS)
+    assert after.count(b"\n") == after.count(b"\r\n")  # no bare LF anywhere
+    head = CRLF_LOCAL.encode("utf-8").split((BEGIN + "\r\n").encode("utf-8"))[0]
+    tail = CRLF_LOCAL.encode("utf-8").split((END + "\r\n").encode("utf-8"))[1]
+    assert after.startswith(head) and after.endswith(tail)
+    assert _block(p) == SOURCE_ROWS  # and it is still a sync, not just bytes
+
+
+def test_a_local_file_with_no_trailing_newline_keeps_none(local, source):
+    local.write_text(LOCAL_TEMPLATE.rstrip("\n"), encoding="utf-8")
+    assert sync(source, local, out=io.StringIO()) == 0
+    assert not local.read_text(encoding="utf-8").endswith("\n")
+    assert _block(local) == SOURCE_ROWS
+
+
+def test_check_sees_an_added_row(local, source):
+    sync(source, local, out=io.StringIO())
+    source.write_text(
+        SOURCE_TEXT.replace(
+            "\n## Parked",
+            "\n| 3 | bookkeepers | Bookkeeping firms | invoice, vat, receipt | new |\n"
+            "\n## Parked",
+        ),
+        encoding="utf-8",
+    )
+    out = io.StringIO()
+    assert main(["--source", str(source), "--check"], target=local, out=out) == 1
+    assert "+| 3 | bookkeepers |" in out.getvalue()
+
+
+def test_check_sees_a_removed_row(local, source):
+    sync(source, local, out=io.StringIO())
+    source.write_text(
+        SOURCE_TEXT.replace(
+            "| 2 | payroll-bureaus | Payroll bureaus | payslip, holiday, tax-code | strongest |\n",
+            "",
+        ),
+        encoding="utf-8",
+    )
+    out = io.StringIO()
+    assert main(["--source", str(source), "--check"], target=local, out=out) == 1
+    assert "-| 2 | payroll-bureaus |" in out.getvalue()
+
+
+def test_check_sees_rows_that_only_swapped_places(local, source):
+    """The two rows are moved, not edited: same bytes, same count, same ranks.
+
+    `load` cannot see this - it sorts by rank, so both sides parse to the same
+    two segments. The block is compared verbatim, which is the only reason the
+    file order is held to the source's at all."""
+    sync(source, local, out=io.StringIO())
+    first, second = SOURCE_ROWS[2], SOURCE_ROWS[3]
+    source.write_text(
+        SOURCE_TEXT.replace(first + "\n" + second, second + "\n" + first),
+        encoding="utf-8",
+    )
+    assert load(source) == load(local)  # the parser is blind to the move
+    out = io.StringIO()
+    assert main(["--source", str(source), "--check"], target=local, out=out) == 1
+    assert "python tools/sync_backlog.py" in out.getvalue()
+
+    assert sync(source, local, out=io.StringIO()) == 0
+    assert _block(local) == [SOURCE_ROWS[0], SOURCE_ROWS[1], second, first]
+
+
+def test_duplicate_ranks_are_accepted_and_keep_their_file_order(tmp_path):
+    """Rank is intent, not a key, so two rows may share one. sorted() is
+    stable, which is the only reason next_unused is deterministic here - worth
+    pinning, because a switch to an unstable sort would silently reorder the
+    proposal loop rather than fail."""
+    p = tmp_path / "tied.md"
+    p.write_text(SAMPLE.replace("| 2 | freight", "| 1 | freight"), encoding="utf-8")
+    segments = load(p)
+    assert [(s.rank, s.id) for s in segments] == [
+        (1, "insurance-brokers"), (1, "freight-forwarders"), (3, "letting-agents"),
+    ]
+    assert next_unused(segments, {"insurance-brokers"}).id == "freight-forwarders"
+
+
+def test_int_accepts_padded_and_signed_ranks(tmp_path):
+    """`007` and `+1` are ranks 7 and 1, not refusals. Recorded because the
+    rank cell has three named refusals and a reader could reasonably expect a
+    fourth here; the sort, not the text, is what rank means."""
+    p = tmp_path / "padded.md"
+    p.write_text(
+        SAMPLE.replace("| 1 | insurance", "| +1 | insurance")
+        .replace("| 3 | letting", "| 007 | letting"),
+        encoding="utf-8",
+    )
+    assert [(s.rank, s.id) for s in load(p)] == [
+        (1, "insurance-brokers"), (2, "freight-forwarders"), (7, "letting-agents"),
+    ]

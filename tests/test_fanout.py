@@ -1184,8 +1184,16 @@ def test_the_shipped_seeds_file_prices_under_the_workflow_budget():
     estimate = fanout._estimate(
         fanout._seed_plan(seeds), max_ads=fanout.DEFAULT_MAX_ADS, budget=150, creatives=0,
     )
-    assert estimate["searches"] == 6
-    assert estimate["ad_library_calls"] == 12
+    # Re-derived, not hardcoded. This asserted searches == 6 and calls == 12,
+    # which described a seed file holding two pages and five queries, and went
+    # red the day eleven real page ids were added - a test failing because the
+    # work went well. What docs/COST.md actually promises is HEADROOM: a sweep
+    # and a same-hour re-run both fit inside the hourly allowance, and
+    # research.yml passes --budget 150 against a ceiling of 200.
+    pages = len(seeds.pages)
+    expected_searches = -(-pages // discover.MAX_PAGE_IDS_PER_CALL) + len(seeds.queries)
+    assert estimate["searches"] == expected_searches
+    assert estimate["ad_library_calls"] == expected_searches * discover.DEFAULT_MAX_PAGES
     assert estimate["ad_library_calls"] < 20 <= 150
     assert estimate["model_calls"] == 4
 

@@ -595,18 +595,47 @@ def api_url() -> str:
 
 
 def _redact(text: str, token: str | None) -> str:
-    """Cut the token value out of `text`. The second line of defence.
+    """Cut the token value out of `text`, whole OR IN PART.
 
-    Nothing in this module interpolates the token into a message - but the
-    transport can, and Meta does: the Graph API answers a bad token with
-    "Invalid OAuth access token" and sometimes the token beside it. That body
-    is exactly what an operator needs to read, so it is kept and scrubbed
-    rather than dropped. engine/oauth.py's `_never_leak` also cuts partial
-    echoes; this module sees only bodies, and whole-value is what Meta echoes.
+    DELEGATES to engine.oauth._redact. It used to be a local
+    `text.replace(token, REDACTED)` with a comment arguing that partial
+    echoes were engine/oauth.py's problem because "this module sees only
+    bodies, and whole-value is what Meta echoes".
+
+    That reasoning was wrong, and MEASURED wrong on 2026-09-19 with a
+    200-character sentinel token: this module truncates Meta's body itself,
+    at `_api_error` and at the non-JSON branch of `_http`, both `body[:200]`.
+    A token near that length comes back SLICED by our own truncation, and a
+    whole-value replace cannot match a slice. 116 and 121 characters of a live
+    token reached stderr out of main(), and 40 characters were written into
+    research/selection.json - which .github/workflows/research.yml git-adds
+    and pushes. A token in a committed file is a token an attacker has, and
+    the promise it broke is the one whose failure is silent and permanent.
+
+    So there is now ONE definition of the cut in this repository, in
+    engine/oauth.py, where `_cut_runs` also removes any run of
+    MIN_REDACTED_RUN characters taken from the value. A second copy of a
+    security primitive is what caused this: the copy was made, the original
+    was hardened, and the copy was not.
+
+    FAIL CLOSED when the scrubber is absent. engine/oauth.py is imported
+    lazily here for the reason `_token` gives - this module loads and every
+    test that passes `token=` runs without it - so a broken checkout could
+    reach this function with a token and no scrubber. It drops the body
+    rather than printing it: an unreadable error is recoverable, a leaked
+    credential is not.
     """
-    if isinstance(token, str) and len(token) >= MIN_REDACTABLE:
-        return text.replace(token, REDACTED)
-    return text
+    if not isinstance(token, str) or len(token) < MIN_REDACTABLE:
+        return text
+    try:
+        from engine import oauth
+    except ImportError:
+        return (
+            "<body withheld: engine/oauth.py, which scrubs the token out of it, "
+            "is not in this checkout, and printing it unscrubbed could leak the "
+            "credential. Restore engine/oauth.py to read this error.>"
+        )
+    return oauth._redact(text, [token])
 
 
 def _scrubbed(token: str | None, work):
@@ -617,6 +646,25 @@ def _scrubbed(token: str | None, work):
     in it. The replacement is raised AFTER the except block, so the original
     is not chained on as `__context__` with its unscrubbed message readable to
     anything that walks the chain.
+
+    THE REPLACEMENT IS ALWAYS A FRESH OBJECT. This used to read
+    `error = exc if clean == str(exc) else type(exc)(clean)`, re-using the
+    original whenever its own message happened to need no scrubbing - and a
+    message needing no scrubbing says nothing about what is hanging off it.
+    An exception raised inside `work` carries whatever `__context__` it picked
+    up in there, so a perfectly clean refusal rides out with, say, a date
+    parser's "Invalid isoformat string: '<the token>'" attached and readable
+    to anything that walks the chain. engine/oauth.py's `_never_leak`
+    documents that exact trap as load-bearing; this function had the bug it
+    describes.
+
+    BELOW Exception the catch is deliberate and the types are KEPT.
+    KeyboardInterrupt, SystemExit and asyncio.CancelledError derive from
+    BaseException and sail straight past `except Exception` with their
+    messages and their chains intact. They are scrubbed argument by argument
+    rather than rebuilt from a string, so `SystemExit(2)` keeps its integer
+    exit code and Ctrl-C still kills the run on the first press instead of
+    becoming an ApiError nobody expected.
     """
     try:
         return work()
@@ -624,9 +672,24 @@ def _scrubbed(token: str | None, work):
         raise  # carries numbers, never a value; charged before this wrapper
     except DiscoveryError as exc:
         clean = _redact(str(exc), token)
-        error = exc if clean == str(exc) else type(exc)(clean)
+        try:
+            error = type(exc)(clean)
+        except TypeError:
+            # A subclass with its own __init__ - QuotaExceededError's shape,
+            # which is already returned above, but a future one would land
+            # here. Still a DiscoveryError, still scrubbed.
+            error = ApiError(clean)
     except Exception as exc:
         error = ApiError(_redact(f"{type(exc).__name__}: {exc}", token))
+    except BaseException as exc:  # noqa: BLE001 - deliberate; see above
+        cleaned = tuple(
+            _redact(arg, token) if isinstance(arg, str) else arg
+            for arg in exc.args
+        )
+        try:
+            error = type(exc)(*cleaned)
+        except TypeError:
+            error = type(exc)()
     raise error
 
 

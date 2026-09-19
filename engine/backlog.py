@@ -16,6 +16,11 @@ DEFAULT_PATH = ROOT / "queue" / "backlog.md"
 # and the header are filtered out by the rank cell failing to be an integer.
 ROW_RE = re.compile(r"^\|(.+)\|$")
 
+# A row anchored at one end only. Checked so it can be REFUSED rather than
+# skipped - see load(). The leading-pipe case needs a trailing non-pipe and
+# vice versa, so a well-formed row never matches this.
+HALF_PIPED_RE = re.compile(r"^\|.*[^|]$|^[^|].*\|$")
+
 
 @dataclass(frozen=True)
 class Segment:
@@ -33,8 +38,29 @@ def load(path: Path | None = None) -> list[Segment]:
 
     segments: list[Segment] = []
     for line in path.read_text(encoding="utf-8").splitlines():
-        match = ROW_RE.match(line.strip())
+        stripped = line.strip()
+        match = ROW_RE.match(stripped)
         if not match:
+            # A row anchored at ONE end is a typo in a table, not prose, and
+            # dropping it silently shrinks the backlog with nothing said.
+            # MEASURED 2026-09-19: delete the trailing pipe from rank 1 and
+            # load() returns four segments instead of five, next_unused()
+            # hands out rank 2, and no error is raised anywhere. The file's
+            # own banner promises "a malformed one raises", so it must.
+            #
+            # Prose is unaffected: a sentence does not begin or end with a
+            # pipe. A fenced code block CAN, which is why the refusal names
+            # the line and says how to neutralise it.
+            if HALF_PIPED_RE.match(stripped):
+                raise ValueError(
+                    f"malformed backlog row: {line!r} (a table row needs a "
+                    f"pipe at BOTH ends; this one has exactly one, so it "
+                    f"would be skipped silently and the backlog would be one "
+                    f"segment shorter than it looks). Add the missing pipe, "
+                    f"or if this line is not a table row, indent it or move "
+                    f"it out of the file - every pipe-delimited row here is "
+                    f"parsed as data, anywhere in the file."
+                )
             continue
         cells = [c.strip() for c in match.group(1).split("|")]
 
@@ -57,6 +83,18 @@ def load(path: Path | None = None) -> list[Segment]:
         except ValueError:
             raise ValueError(
                 f"malformed backlog row: {line!r} (rank must be an integer, got {cells[0]!r})"
+            )
+
+        # The id is how every other file names this segment: a queue job is
+        # queue/<stage>/<id>.json, a concept cites it, an approval issue
+        # carries it in its marker. A blank one was constructed into a Segment
+        # and handed straight to next_unused() as the top-ranked candidate,
+        # which then proposes a reel whose job file is named ".json".
+        if not cells[1]:
+            raise ValueError(
+                f"malformed backlog row: {line!r} (the id cell is empty, and "
+                f"the id is what names this segment's job file, its concept "
+                f"and its approval issue). Give it a short slug."
             )
 
         questions = tuple(q.strip() for q in cells[3].split(",") if q.strip())

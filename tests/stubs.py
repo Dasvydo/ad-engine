@@ -10,8 +10,14 @@ thinking-capable model does. A thinking block has no `.text` at all, so any
 code reaching for `reply.content[0].text` raises AttributeError here, in a
 test, rather than in a live run. The right read is `engine.model.text_of`.
 
-No socket, no key, no google.genai: this module imports engine.model only for
-the dataclasses it re-exports.
+Every call is put through the same argument path GeminiClient puts it
+through - the prompt fold and `_media_part` - so a shape the live client
+refuses is refused here too, in the test that wrote it, rather than passing
+green over a call that cannot work. See `_as_the_client_would`.
+
+No socket, no key, no google.genai: this module imports engine.model for the
+dataclasses it re-exports and for that one validation helper, which takes the
+SDK's `types` as an argument rather than importing it.
 """
 from __future__ import annotations
 
@@ -19,7 +25,7 @@ import json
 import types
 from dataclasses import dataclass
 
-from engine.model import Reply, TextBlock
+from engine.model import Reply, TextBlock, _media_part
 
 __all__ = [
     "Reply", "TextBlock", "ThinkingBlock",
@@ -49,6 +55,47 @@ def json_reply(obj, *, stop_reason: str = "end_turn") -> Reply:
     return text_reply(json.dumps(obj, ensure_ascii=False), stop_reason=stop_reason)
 
 
+class _NoPart:
+    """Where `_media_part` builds a google.genai part, it builds one of these.
+
+    _media_part takes the SDK's `types` module as an argument rather than
+    importing it, so the stub can run the REAL validation - ref present, file
+    on disk, known suffix, under the inline limit, known kind - and throw the
+    part away at the end. That keeps the rules in one place (engine/model.py)
+    and keeps this module free of google, which tests/test_model.py pins.
+    """
+
+    def __init__(self, **_):
+        pass
+
+    @staticmethod
+    def from_bytes(**_):
+        return None
+
+
+_PART_FREE_TYPES = types.SimpleNamespace(Part=_NoPart, FileData=_NoPart)
+
+
+def _as_the_client_would(messages) -> None:
+    """Everything GeminiClient does to `messages` BEFORE the socket.
+
+    MEASURED against engine.model._Messages.create: thirteen call shapes it
+    refuses - a missing model/max_tokens/messages, a non-str content, messages
+    that is not a list of dicts, and every invalid media entry - this stub used
+    to wave through. Only one call in the suite's ~1,600 was actually wrong
+    (a media ref to a file that has never existed, in this module's own test),
+    so the stub was not testing a fiction; nothing stopped it starting to. A
+    test that attaches a 25MB creative or a .gif goes green while the live run
+    raises ValueError before a socket and drops the candidate.
+
+    The fold and the parts are built and discarded: the point is the raising.
+    """
+    "\n\n".join(m["content"] for m in messages if m.get("content"))
+    for message in messages:
+        if message.get("media"):
+            _media_part(_PART_FREE_TYPES, message["media"])
+
+
 class StubClient:
     """A client that answers from a queue and remembers what it was asked.
 
@@ -60,17 +107,34 @@ class StubClient:
     An item that is an Exception instance is RAISED instead of returned, so a
     test can put a CapacityError second in the queue and watch a selection
     loop skip one concept and carry on to the next.
+
+    Arguments are checked the way the live client checks them before it opens
+    a socket: keyword-only model/max_tokens/messages, a foldable `content` on
+    every message, and a real `media` entry where one is attached.
     """
 
     def __init__(self, replies=()):
         if isinstance(replies, Reply) or isinstance(replies, BaseException):
             replies = [replies]
+        if isinstance(replies, str):
+            # list('hello') is five one-character replies, and the first thing
+            # the code under test reads is 'h' - through text_of, ''. A silent
+            # queue of nonsense, so it is a TypeError naming the fix instead.
+            raise TypeError(
+                "StubClient takes Replies, not a string. Wrap the text: "
+                "StubClient([text_reply(%r)])" % replies[:40]
+            )
         self._replies = list(replies)
         self.calls: list[dict] = []
         self.messages = types.SimpleNamespace(create=self._create)
 
-    def _create(self, **kw):
+    def _create(self, *, model, max_tokens, messages, **rest):
+        # The same keyword-only signature GeminiClient.messages.create has, so
+        # a call that forgets one fails here the way it would live.
+        kw = {"model": model, "max_tokens": max_tokens, "messages": messages}
+        kw.update(rest)
         self.calls.append(kw)
+        _as_the_client_would(messages)
         if not self._replies:
             prompt = self.sent(len(self.calls) - 1)
             raise AssertionError(

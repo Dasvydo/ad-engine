@@ -38,6 +38,15 @@ sides - a knowledge base has to be able to answer the mail.
 > refuses a row it finds there, because no rewrite of the block could make the
 > local table equal the source.
 
+One shape does **not** raise, and the sentence above is wrong about it until
+the parser is fixed. MEASURED: a row that lost its leading or trailing pipe is
+skipped rather than refused, so a four-row table loads as three with nothing
+raised - every other one-character slip in a row is named and refused.
+`engine/backlog.py` is a byte-for-byte copy of reel-engine's and cannot gain
+the guard on this side alone, so `tools/sync_backlog.py` refuses such a row on
+the way in instead. That covers the copy, not the original: the same slip in
+reel-engine still drops a segment from its own proposal loop.
+
 <!-- backlog:begin -->
 | rank | id | trade | questions | note |
 |---|---|---|---|---|
