@@ -13,6 +13,12 @@ queue/*.csv
 # Scratch output. Nothing downstream reads it.
 out/
 
+# The offline walk's artifacts. `python tools/walk.py` rebuilds every file in
+# here from fixtures in one second, so a committed copy would only ever be a
+# stale second opinion about what the engine does. The marker file inside is
+# what stops the tool deleting a directory it did not write.
+demo/
+
 # Somebody else's creative. An operator opens an ad's snapshot URL and saves
 # the file here by hand so engine/analyse.py can attach it to one model call -
 # nothing in this repository fetches one. `research/media/*` covers EVERY
