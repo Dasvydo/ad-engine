@@ -1,0 +1,353 @@
+name: measure
+
+# Once a week, an hour BEFORE the research sweep. The hour is the whole point.
+#
+# WHY THIS RUNS BEFORE research.yml, AND WHY THAT IS NOT A PREFERENCE
+#
+# `engine.feedback` turns every measured ad of ours into a corpus record with
+# origin "own" - the same shape as a record taken off a stranger's ad, with our
+# own click-through rate under it. `engine.fanout`, which research.yml runs at
+# 06:00, loads the WHOLE corpus and derives that week's patterns from it, and
+# propose.yml writes the winning copy at 09:00. So a record written at 05:0x on
+# Monday is evidence at 06:00 and an ad at 09:00.
+#
+# Run it after research instead and nothing breaks, visibly: the record still
+# lands, and it is simply read seven days later. Every number we learn about
+# our own ads would reach the concepts a week after it was true, and the one
+# feedback loop this engine has would run at half a cycle per week for no
+# reason other than the order of two crons. There is no error for that; the
+# concepts just get staler. The week is measure 05:00 -> research 06:00 ->
+# propose 09:00, and moving either of the first two without the other quietly
+# reintroduces the lag. timeout-minutes below is set so this job cannot still
+# be running when research starts.
+#
+# WHAT IT SPENDS. One Marketing API insights call per launched ad, charged
+# against a 200/hour ledger BEFORE the socket opens; nothing launched costs
+# nothing. NO MODEL CALL ANYWHERE: engine.measure reads an API and
+# engine.feedback reads three files and counts words, which tests/test_learn.py
+# and tests/test_feedback.py prove by AST-parsing the module. There is no
+# GEMINI_API_KEY here and there should never be one. No `playwright install`
+# either - nothing in this path renders - which makes this the cheapest
+# scheduled job in the repository.
+#
+# THIS READS OUR OWN ACCOUNT AND NOTHING ELSE. The ad ids come from
+# queue/launched/, where a human pinned them; the token's ads_read on our own
+# ad account is what scopes the answer. There is no search here, no page id and
+# no snapshot - the Ad Library half of this engine lives in research.yml.
+#
+# Note: this begins firing the moment it lands on the default branch, and a
+# week with nothing launched is a clean exit 0 that writes an empty document.
+# Run the workflow_dispatch path once with `dry_run` ticked - it calls the API,
+# prints what it would write and writes nothing - before trusting the schedule.
+# See docs/SECRETS.md.
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "rehearse: call the API, print the document, write nothing and commit nothing"
+        type: boolean
+        required: false
+        default: false
+
+# contents only. This job commits what it measured and opens nothing: the
+# approval issue belongs to propose, and there is nothing here for a human to
+# tap - a measurement is read back, not approved. Least privilege, and
+# tests/test_workflows.py pins the ABSENCE of issues:write so that nobody
+# grants it to bring this file under a test written for the workflows that need
+# it.
+permissions:
+  contents: write
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    # JOB level. This workflow has one job that never skips, so the group is
+    # held for exactly as long as the work that touches research/ actually
+    # runs - the narrower claim, and the shape the label-triggered pair had to
+    # learn the hard way in the sibling repository when a skipped run's
+    # workflow-level group cancelled a real render.
+    #
+    # Never cancel-in-progress. A cancelled measurement has already charged its
+    # insights calls against the hour, and they do not come back.
+    concurrency:
+      group: measure
+      cancel-in-progress: false
+    # One HTTPS call per launched ad, two file readers and a push, on a runner
+    # with no browser to download: docs/COST.md ESTIMATES ~2 minutes, most of
+    # it the install. 15 is ~7x that, and it is chosen against the clock rather
+    # than against the workload - research.yml starts at 06:00, so a job that
+    # starts at 05:00 and cannot outlive 05:15 can never still be holding the
+    # branch when the sweep that consumes its output checks out.
+    timeout-minutes: 15
+    steps:
+      # First, so the stamp covers the install too - the install is most of
+      # what this job spends, and a measurement of the cheapest job that
+      # excluded its largest cost would be worth nothing. See docs/COST.md.
+      - name: Stamp the start time
+        run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - name: Require META_ACCESS_TOKEN
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$META_ACCESS_TOKEN" ]; then
+            echo "::error::META_ACCESS_TOKEN is not set."
+            echo "::error::The measure step reads our own launched ads on the"
+            echo "::error::Marketing API insights edge - one call per pinned ad"
+            echo "::error::id - so the SAME token research.yml uses for the Ad"
+            echo "::error::Library also needs ads_read on our own ad account."
+            echo "::error::GEMINI_API_KEY is not a substitute and is not used"
+            echo "::error::anywhere in this workflow: nothing here calls a"
+            echo "::error::model."
+            echo "::error::Set META_TOKEN_ISSUED to the day the token was"
+            echo "::error::minted, as a repository VARIABLE, in the same visit -"
+            echo "::error::a stale date is a countdown that never fires."
+            echo "::error::engine.feedback needs no credential at all, but it"
+            echo "::error::has nothing to feed back until the measurement"
+            echo "::error::exists, so this fails the run rather than skipping a"
+            echo "::error::step and reporting a green week that learned"
+            echo "::error::nothing."
+            echo "::error::See docs/SECRETS.md."
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # No `playwright install`, for the same reason research.yml gives: the
+      # Chromium download is most of what build.yml spends, and nothing in this
+      # path opens a browser. Do not add it "for consistency".
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # The countdown, before anything is spent, and its exit code is caught
+      # rather than propagated. `--status` is offline, prints which names are
+      # set and the VALUE of none of them, and exits 1 from day 40 of Meta's 60
+      # and again once the token is dead. Day 40 leaves twenty days - at this
+      # weekly cadence, at least two more runs that shout before anything
+      # breaks - so that exit is a WARNING. A job that went red for it would be
+      # red for three good weeks running, which is how a red cron stops meaning
+      # anything. A token that is genuinely dead fails the measure step below,
+      # from engine.oauth, where the refusal is the real one.
+      - name: Count the Meta token down
+        id: token
+        continue-on-error: true
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          META_TOKEN_ISSUED: ${{ vars.META_TOKEN_ISSUED }}
+        run: |
+          set -euo pipefail
+          code=0
+          python -m engine.oauth --status > "$RUNNER_TEMP/oauth.txt" 2>&1 || code=$?
+          cat "$RUNNER_TEMP/oauth.txt"
+          if [ "$code" -ne 0 ]; then
+            echo "::warning::The Meta token countdown exited nonzero: the"
+            echo "::warning::token is inside its 20-day warning window, already"
+            echo "::warning::past Meta's 60 days, or carries no readable issue"
+            echo "::warning::date to age from. The countdown printed above says"
+            echo "::warning::which, and how many of the 60 days are left."
+            echo "::warning::Rotate META_ACCESS_TOKEN and set META_TOKEN_ISSUED"
+            echo "::warning::to that same day, in one visit - updating one"
+            echo "::warning::without the other is how this breaks silently."
+            echo "::warning::Meta cannot refresh a token past day 60, and a"
+            echo "::warning::refreshed one cannot be written back into a secret"
+            echo "::warning::from here."
+          fi
+
+      - name: Measure what our launched ads actually did
+        id: measure
+        # A nonzero exit means "this run could not be resolved", NOT "nothing
+        # was produced" - the rule research.yml and propose.yml both follow. An
+        # ad Meta holds no insights row for yet is reported and skipped by
+        # name while the others are measured and written, and those numbers
+        # have to be committed before the job goes red. The failure is
+        # re-raised below, after the commit.
+        continue-on-error: true
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          META_TOKEN_ISSUED: ${{ vars.META_TOKEN_ISSUED }}
+          # A repository variable reaches the runner only through a mapping
+          # like this one. Unset it interpolates to "", which engine/measure.py
+          # strips back to the unversioned host it wants by default - so the
+          # knob is inert until somebody sets it, and connected once they do.
+          META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          args=()
+          # The rehearsal path. --dry-run calls the API, prints the document it
+          # would have written to stdout and writes nothing, so a first live
+          # run can be eyeballed against the real ad account while leaving the
+          # tree byte-identical. Nothing downstream commits, because nothing
+          # downstream changed.
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          # No --strict. A skip is the ordinary case here - an ad launched on
+          # Friday may have no insights row yet - and a weekly cron that went
+          # red over one of those would train everyone to ignore it. The skips
+          # are named in the summary and on stderr, and the step below fails
+          # the job for a run that could not resolve at all.
+          python -m engine.measure "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/measure.txt"
+
+      - name: Feed the measured ads back into the corpus
+        id: feedback
+        # Same posture, one stage on: a launched job whose JSON has gone
+        # missing is reported and skipped, and the records that did build must
+        # still reach the commit below.
+        continue-on-error: true
+        # NO KEY AND NO TOKEN, on purpose. engine.feedback reads
+        # research/measurements.json, queue/launched/*.json and
+        # research/seeds.yaml, counts words, and writes corpus records;
+        # tests/test_feedback.py AST-parses the module to prove nothing it
+        # imports can reach a model or the network. Anything given a credential
+        # here would be a credential this step could spend, and the whole
+        # reason the loop closes for free is that its second half costs
+        # nothing.
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          args=()
+          # A rehearsal that wrote corpus records off a document it never wrote
+          # would be teaching next week's concepts from numbers that are not on
+          # disk. A rehearsal leaves the tree byte-identical or it is not a
+          # rehearsal.
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          # An ad with no impressions is skipped by design - engine.learn takes
+          # medians over the ads supporting a pattern, and a zero would drag
+          # those down with nothing in the file to say why.
+          python -m engine.feedback "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/feedback.txt"
+
+      - name: Report what the run produced
+        if: always()
+        run: |
+          {
+            echo "### Measure"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/measure.txt" 2>/dev/null \
+              || echo "the measurement produced no summary; it was cancelled before it started"
+            echo '```'
+            echo
+            # Between the two, exactly as the stages ran, so the summary reads
+            # in pipeline order. The countdown is here rather than only in the
+            # log because the summary is the page an operator actually opens on
+            # a Monday - it is where a token with twenty days left has to be
+            # visible, while there is still time to rotate it. `--status`
+            # prints which names are set and the value of none of them; the
+            # date it does print is a repository variable, not a secret.
+            echo "### Meta token"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/oauth.txt" 2>/dev/null \
+              || echo "the countdown produced no summary; it did not run"
+            echo '```'
+            echo
+            echo "### Feedback"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/feedback.txt" 2>/dev/null \
+              || echo "the feedback step produced no summary; it did not run"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit the measurements and the corpus records
+        run: |
+          set -euo pipefail
+          git config user.name "doviloop-engine"
+          git config user.email "engine@doviloop.invalid"
+          # The outputs by name, never `git add research`. That directory also
+          # holds research/media/, where an operator hand-saves a competitor's
+          # creative so a model can watch it - somebody else's file, which this
+          # repository must not commit. .gitignore covers .mp4, .mov, .m4v and
+          # .webm but NOT the .jpg, .jpeg, .png and .webp that
+          # engine/analyse.py also accepts, so a blanket add would commit
+          # exactly the files the ignore list misses. research.yml solves it
+          # the same way and for the same reason; research/seeds.yaml is
+          # hand-maintained and neither job writes it.
+          #
+          # queue/ is NOT staged here. engine.measure reads the launched jobs
+          # and writes none of them - the ad id was pinned by launch.yml, by a
+          # human, once - so there is nothing of this run's under queue/ and
+          # anything found there would belong to another workflow.
+          for produced in research/measurements.json research/corpus; do
+            if [ -e "$produced" ]; then
+              git add "$produced"
+            fi
+          done
+          # `git commit` fails on an empty index, and an empty index is an
+          # ordinary outcome here: a rehearsal writes nothing into the tree,
+          # and neither does a week with nothing launched or a week whose rows
+          # are byte-identical to last week's. Report and stop rather than
+          # failing the job over it.
+          if git diff --cached --quiet; then
+            echo "::notice::Nothing to commit. Either this was a dry_run"
+            echo "::notice::rehearsal, nothing has been launched yet, or every"
+            echo "::notice::row read back the same as last week. The summary"
+            echo "::notice::above says which."
+            exit 0
+          fi
+          git commit -m "measure: $(date -u +%Y-%m-%d) readback"
+          # Pushes, with a rebase-and-retry, so a run that loses a race to the
+          # branch is not thrown away. The script says which day that cost a
+          # completed research sweep.
+          bash tools/push_with_retry.sh
+
+      - name: Fail if a stage could not run
+        if: steps.measure.outcome == 'failure' || steps.feedback.outcome == 'failure'
+        run: |
+          echo "::error::The readback reported a stage it could not complete."
+          echo "::error::The summary above names it. Whatever the run did"
+          echo "::error::produce has already been committed - fix what it"
+          echo "::error::named and re-run."
+          echo "::error::On a first run the usual causes are an expired"
+          echo "::error::META_ACCESS_TOKEN (the countdown above says how many"
+          echo "::error::of Meta's 60 days are left) or a token without"
+          echo "::error::ads_read on our own ad account, which reads as a"
+          echo "::error::permission error naming the ad id. The ad ids"
+          echo "::error::themselves were pinned by hand at launch and are not"
+          echo "::error::guessed at, so an id Meta says does not exist is a"
+          echo "::error::typo in queue/launched/, not a matching failure."
+          exit 1
+
+      # always(), because a run that dies after the install has still spent the
+      # minutes it spent installing - a cron that fails every Monday costs as
+      # much as one that works. Plain shell and `date` rather than a
+      # marketplace timing action; two subtractions are not worth a dependency.
+      - name: Report the minutes this job used
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+        run: |
+          # An unstamped job is unmeasured, not free. Reporting 0 would quietly
+          # understate the month.
+          if [ -z "${JOB_STARTED:-}" ]; then
+            {
+              echo "### Actions minutes"
+              echo
+              echo "- \`measure\` never stamped a start time, so its cost is unknown."
+              echo "  The job was cancelled before its first step ran."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          elapsed=$(( $(date +%s) - JOB_STARTED ))
+          {
+            echo "### Actions minutes"
+            echo
+            echo "- \`measure\` took $(( elapsed / 60 ))m $(( elapsed % 60 ))s wall clock; status \`$STATUS\`."
+            # Billing rounds each job up to the whole minute, so the billed
+            # figure is the one to add up, not the wall clock.
+            echo "- Billed as $(( (elapsed + 59) / 60 )) minute(s) of the 2,000/month Linux allowance."
+            echo "- Budget and headroom: \`docs/COST.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"

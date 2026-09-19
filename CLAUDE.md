@@ -57,9 +57,26 @@ python scripts/sync_skill_claims.py --check  # fail if it is stale
   hash raw PII server-side, but `engine/audience.py` exists so the raw list never
   leaves this machine. Pass the already-hashed values — 64-char hex passes through
   unchanged.
-- **Live account**: `620456015062432` ("Dovydas Vinickis"), MCP-enabled, ACTIVE,
-  **currency DKK** (permanent), **no payment method**, **no Business Manager**
-  (`business_id` empty — it is a personal ad account). Min daily budget DKK 6.46.
+- **Live account**: `620456015062432` — renamed **"DoviLoop Ads"**, MCP-enabled,
+  ACTIVE, **currency DKK** (permanent), min daily budget DKK 6.46.
+  ✅ **A payment method is attached** (read live 2026-09-19; it said "none" until
+  then). ⚠️ `business_id` is still empty — the **DoviLoop** business portfolio
+  exists and owns the Page and the pixel, but **not** this ad account: Meta
+  refuses the claim until it has billed a first real payment, not merely seen a
+  card. Retry after the first invoice. Until then there is no
+  Business-Settings → Domains screen for this account, so `doviloop.dev` cannot
+  be verified and Aggregated Event Measurement is unavailable. Neither gates a
+  `LINK_CLICKS` campaign.
+- **Pixel / dataset `1584074833462346`** — named "DoviLoop teams campaign",
+  **owned by the DoviLoop business**, receiving events since 2026-09-12, and
+  connected to the ad account. The pixel audiences are blocked on *time*, not
+  on wiring.
+- **Destination is live**: `https://teams.doviloop.dev/` serves the campaign page
+  on `/`, `/da` and `/lt`, no redirects, own certificate. Cut over 2026-09-18 by
+  adding a `teams` CNAME that beats the `*.doviloop.dev` wildcard; nothing was
+  deleted. ⚠️ This supersedes the `_decisions` entry of 2026-09-14 in
+  `claims/evidence.json`, which named the `.vercel.app` deployment URL as
+  canonical because the subdomain then 301'd to the product site.
 - **Live on the account (2026-09-16, ALL PAUSED, nothing spending):**
   campaign `120252014714500563` "DoviLoop · EN traffic · DK+LT" — `OUTCOME_TRAFFIC`,
   CBO DKK 35/day · ad set `120252014715910563` — `LINK_CLICKS`/`IMPRESSIONS`,
@@ -79,15 +96,23 @@ python scripts/sync_skill_claims.py --check  # fail if it is stale
   **This is a practice campaign, not ICP validation** — English copy, broad interest.
   The number it buys is the real CPM. ⚠️ Read the **country breakdown**: LT is cheaper,
   so Meta will skew delivery there and the headline CPM will read as Lithuania's.
-- **Blocking a live ad: the payment method, and only that.** Founder-only, browser.
+- **Nothing blocks a live ad any more.** The payment method landed 2026-09-19.
+  What is left is the ad object itself: zero ads exist on the account.
   ⚠️ The Facebook Page claim above it was **wrong and is corrected** — read live
   2026-09-18 via `ads_get_user_pages`, the account can advertise as **`DoviLoop`,
   page_id `1294387330427112`** (two others exist: `garazasvilnius`, `All-Upper`).
   An ad creative's `page_id` is therefore available now. It remains true that no
   create-page tool exists, which is where the wrong claim came from.
-- **Two creative arms only**: `capacity` (untested, recommended) and `hours`
-  (control). They mirror outreach-engine's arms deliberately — same variable,
-  two channels. Do not add a third.
+- ⚠️ **"Two creative arms only" is superseded for this campaign.** It said
+  `capacity` and `hours` mirror outreach-engine's arms, same variable, two
+  channels — sound, and not what is going live. The founder chose the
+  **objection variants** on 2026-09-19: three ads from `creative/copy/`,
+  `v3-outlook` · `v4-europe` · `v2-voice`, each paired with its own static from
+  `creative/static/out/`. `campaigns/structure.md` argues the case — at this
+  spend the trustworthy reading is *which objection people respond to*, which
+  capacity-vs-hours cannot test. The two arms stay in the repo, unused.
+  The rule still holds where it counts: **one variable per test, and no third
+  thing smuggled in beside it.**
 - Danish and Lithuanian copy in `creative/*.json` is still
   `NEEDS_NATIVE_PROOFREAD`. It is not ready to ship — but it is **not on the
   critical path**. The founder's decision of 2026-09-17 runs the outreach audience

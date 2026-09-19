@@ -1,0 +1,35 @@
+{
+  "id": "insurance-brokers",
+  "segment": "insurance-brokers",
+  "concept_id": "a01",
+  "pattern_ids": [],
+  "placement": "reels-9x16",
+  "offer": "guarantee",
+  "hypothesis": "A hook that names the broker's weekly moment - the certificate request - outpulls the generic capacity framing in creative/capacity.json; the guarantee is the offer. Worked example for the writer, deliberately a trade outside queue/backlog.md so it can never be mistaken for a live draft. UNTESTED.",
+  "primary_text": {
+    "en": "Every week a client asks for a certificate of cover, a renewal figure, or whether the tools left in the van overnight are covered.\n\nDoviLoop turns your own policy wordings, renewal terms and certificate process into a reply already waiting in each broker's Outlook drafts, in their own words.\n\nNothing sends until they read it. Nothing leaves Europe. If the drafts are not good enough to send, you do not pay and you keep the knowledge base.",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "headline": {
+    "en": "Proof of cover, already drafted",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "description": {
+    "en": "Built for insurance brokers in Denmark and Lithuania",
+    "da": "NEEDS_NATIVE_PROOFREAD",
+    "lt": "NEEDS_NATIVE_PROOFREAD"
+  },
+  "cta": "LEARN_MORE",
+  "destination": "https://doviloop.dev",
+  "creative_source": {
+    "kind": "reel",
+    "repo": "reel-engine",
+    "template": "reel-c",
+    "selection": "queue/proposed/insurance-brokers.reel.json"
+  },
+  "proposed_at": "2026-09-18T00:00:00Z",
+  "ads": {},
+  "launched_at": null
+}

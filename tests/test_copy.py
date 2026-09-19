@@ -204,4 +204,11 @@ def test_evidence_records_the_dated_decisions():
         if "superseding" in d["topic"]:
             assert d["date"] > "2026-09-06", d
     assert ev["claims"]["roi_model"]["status"] == "UNVERIFIED"
-    assert ev["claims"]["price"]["status"] == "verified"
+    # Was `verified` until 2026-09-20. A second price model - flat firm price,
+    # two packages - is in flight on claude/dazzling-goldberg-ui7hnb, and
+    # per-seat and flat-fee cannot both be true. `verified` in this file is
+    # permission to put something in public copy, so an unsettled price cannot
+    # hold it. The record itself is untouched, which is what the second
+    # assertion pins: restoring it is a one-word edit, not a rewrite.
+    assert ev["claims"]["price"]["status"] == "CONTESTED"
+    assert "89 USD a seat a month" in ev["claims"]["price"]["safe_phrasings"]

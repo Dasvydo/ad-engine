@@ -1,0 +1,267 @@
+# research/seeds.yaml - the hand-maintained half of discovery.
+#
+# Read by engine/discover.py. It is the whole search plan: who the Ad Library
+# is asked about, by page id, and which keyword searches run, in which
+# countries. Every entry below is a call against a budget of about 200 an
+# hour per token (the figure every guide reports; Meta's reference names the
+# error, code 613, and not the number), so this file is where the bill is
+# decided. Ten pages and six queries at two result pages each is under
+# twenty calls a run.
+#
+# Everything here is edited by hand and committed. Git history is the record
+# of what the engine was told to watch and when.
+#
+# The blank own: block at the bottom is read by engine/feedback.py only.
+#
+# --------------------------------------------------------------------------
+# countries - the default ad_reached_countries.
+#
+# The Ad Library only returns a commercial ad if it reached an EU country, so
+# these two are the whole basis of the plan: for DK and LT, ad_type=ALL
+# returns every commercial ad. ISO-2 codes, upper case. A page or a query
+# below may carry its own list instead; nothing else falls back to this one.
+# --------------------------------------------------------------------------
+countries: [DK, LT]
+
+# --------------------------------------------------------------------------
+# pages - who we watch, by PAGE ID.
+#
+#   id          a short slug; unique, and what a skip or an error names
+#   name        the page name that lands in the candidate record as its
+#               channel, until the API reports one
+#   page_id     the numeric id of the Facebook page, quoted so YAML keeps it
+#               a string. It is NOT the page name: a keyword search matches
+#               creative TEXT, and a company's own name is rarely in its copy
+#               (searching "Fyxer" returned 2,642 ads and none of Fyxer's).
+#               Read it out of the Ad Library UI - open the page's ads and
+#               the id is the view_all_page_id in the URL - or take the
+#               page_id an MCP probe returns. Blank is refused at load, not
+#               skipped: a page seeded without an id is a page nobody is
+#               watching, and a skip line nobody will act on is noise.
+#   origin      competitor | icp-adjacent - nothing else parses
+#   countries   optional override of the default list. A US or UK competitor
+#               that never reaches DK or LT is invisible under the default;
+#               give it the countries it does run in, and the record says
+#               which countries it reached.
+#
+# Ads returned by a page search carry that page's origin, and a page's own
+# ads are its baseline: variants and the outlier ratio are counted per
+# page_id over the run's results, so a page with several ads in the archive
+# is worth more than one with a single ad.
+# --------------------------------------------------------------------------
+# EVERY page_id below was read off a live Ad Library response on 2026-09-18,
+# not guessed. The searches that found them are the `queries` block below,
+# run against DK and LT: `regnskab` (509 active ads), `bogforing
+# regnskabsprogram` (18), `buhalterine apskaita` (34), and `AI email
+# assistant inbox` across DK, LT, SE and NL (9). A page here is a page that
+# was actually running ads in that market on that day.
+pages:
+  # -- competitor -----------------------------------------------------------
+  # The only thing found in these markets that sells what we sell. Its own
+  # link title is "AI Email Assistant, Calendar Management Tool with Unified
+  # Inbox" and it bills in DKK, so it is running against a Danish buyer
+  # rather than merely reaching one.
+  - id: echo-you
+    name: Echo You
+    page_id: "1068016506404036"
+    origin: competitor
+    countries: [DK]
+
+  # -- icp-adjacent, Denmark ------------------------------------------------
+  # What our buyer sees between their own posts. None of these sells against
+  # us; all of them are teaching the same market what "AI" plus "regnskab"
+  # is supposed to sound like, which is the vocabulary our copy competes in.
+  - id: balance-dk
+    name: Balance - Your AI Powered Accountants
+    page_id: "1007614045762121"
+    origin: icp-adjacent
+    countries: [DK]
+
+  - id: gosimple
+    name: GoSimple
+    page_id: "1173334875852946"
+    origin: icp-adjacent
+    countries: [DK]
+
+  # Runs the same creative from TWO pages - "Crator - AI Regnskab" and
+  # "crator_app" (1240699365794290), six ads between them on one day, every
+  # one carrying the identical link title. Only the first is seeded, on
+  # purpose: variants and the outlier ratio are counted per page_id, so
+  # seeding both would split one brand's baseline in half and make each page
+  # look like it had fewer variants than the brand actually runs. If the
+  # second page ever runs DIFFERENT creative, seed it then.
+  - id: crator
+    name: Crator - AI Regnskab
+    page_id: "1224869504046057"
+    origin: icp-adjacent
+    countries: [DK]
+
+  - id: numina
+    name: Numina - Regnskab
+    page_id: "587476204450288"
+    origin: icp-adjacent
+    countries: [DK]
+
+  # The incumbent. Runs many near-identical variants of one line at once
+  # ("Overblik uden overtid" four times over), which is the `variants` signal
+  # working exactly as intended: a page telling you which hook it is scaling.
+  - id: dinero
+    name: Dinero - Regnskabsprogram
+    page_id: "486005624788593"
+    origin: icp-adjacent
+    countries: [DK]
+
+  - id: revisal
+    name: Revisal
+    page_id: "1059937640534374"
+    origin: icp-adjacent
+    countries: [DK]
+
+  # -- icp-adjacent, Lithuania ----------------------------------------------
+  # MEASURED, and the reason longevity is this engine's primary signal:
+  # FINUM's ads carry ad_creation_time in March 2024 and were still being
+  # delivered on 2026-09-18. Two and a half years is not a campaign, it is a
+  # verdict - somebody has kept paying for that creative for thirty months.
+  # Whatever `days_running` says about this page is the top of the band.
+  - id: finum
+    name: FINUM
+    page_id: "100309852969689"
+    origin: icp-adjacent
+    countries: [LT]
+
+  # Positions on exactly our argument, in a market we sell to: "Iki 55%
+  # maziau rankinio darbo" - up to 55% less manual work. Worth watching for
+  # the shape of the claim, and worth remembering that we may not make it:
+  # a percentage in our copy needs an attestation and we have none.
+  - id: labbis
+    name: Labbis
+    page_id: "625943337910042"
+    origin: icp-adjacent
+    countries: [LT]
+
+  - id: rivile
+    name: UAB Rivile
+    page_id: "2363739230318095"
+    origin: icp-adjacent
+    countries: [LT]
+
+  - id: keiri
+    name: Keiri
+    page_id: "1101671566369613"
+    origin: icp-adjacent
+    countries: [LT]
+
+  - id: pelningi-sprendimai
+    name: Pelningi Sprendimai
+    page_id: "1110333685679534"
+    origin: icp-adjacent
+    countries: [LT]
+
+  - id: germalita
+    name: Germalita buhalterine apskaita
+    page_id: "425041560693456"
+    origin: icp-adjacent
+    countries: [LT]
+
+  # The two competitors reel-engine watches on YouTube. Both are now seeded,
+  # and the note that used to sit here was WRONG - it said a keyword search
+  # for either name returned "2,642 ads and none of theirs" and concluded the
+  # page ids had to be read out of the UI by hand. Re-run on 2026-09-19 across
+  # the same countries, `Fyxer` returned 2,722 and Fyxer's own ads were in the
+  # first fifty of them. The old conclusion was not a property of the archive;
+  # it was a bad read. What IS true about keyword search is narrower: a
+  # one-word brand name that is also an ordinary word drowns. `Jace` alone
+  # returns 1,462,969 ads, essentially all of them Balkan short-drama spam;
+  # `Jace AI email assistant` returns 287 and Jace.ai is inside them. The
+  # lesson kept from the old note: reach a competitor by page id, not by name.
+  #
+  # MEASURED 2026-09-19, and the reason both are seeded despite it: NEITHER
+  # PAGE HAS A SINGLE ACTIVE AD anywhere in DK, LT, GB, IE, DE, NL, SE, FR,
+  # ES, PL, IT, FI, NO, BE or AT. Everything they have is archived:
+  #
+  #   Fyxer      1,026 ads reaching DK or LT, newest created 2026-06-10
+  #   Jace.ai      234 ads reaching DK or LT, newest created 2026-01-23
+  #
+  # That is not a reason to skip them, it is the reason to seed them NOW. The
+  # archive keeps about a year, so Jace's December ads start falling out of it
+  # in roughly ten weeks and nothing brings them back. And a STOPPED ad is
+  # better longevity evidence than a running one: a running ad's days_running
+  # is a lower bound that moves, while these have a start and a stop, so what
+  # they say is final. Two page searches a week against a corpus that dedupes
+  # by ad id costs two calls of about twenty and catches either of them the
+  # week they start advertising again.
+  - id: fyxer
+    name: Fyxer
+    page_id: "484462831408750"
+    origin: competitor
+    countries: [DK, LT]
+
+  - id: jace-ai
+    name: Jace.ai
+    page_id: "591862607340162"
+    origin: competitor
+    countries: [DK, LT]
+
+# --------------------------------------------------------------------------
+# queries - keyword searches, for ads from pages you have not seeded.
+#
+# A bare string is icp-adjacent and runs in the default countries, which is
+# what a topic search almost always is; a competitor is reached by page id
+# above, not by searching its name. A mapping can narrow it:
+#
+#   query       the search text, up to 100 characters; matched unordered
+#               against the creative text (search_type KEYWORD_UNORDERED)
+#   origin      competitor | icp-adjacent; default icp-adjacent
+#   countries   the ad_reached_countries for this search; default the list
+#               at the top
+#   languages   optional, ISO-2 lower case, so a Danish word is not matched
+#               inside a Swedish ad
+#
+# Each query is one call per result page. Keep the list short and in the
+# market's own words: a broad query returns a broad page mix and a weaker
+# per-page baseline.
+# --------------------------------------------------------------------------
+queries:
+  - query: regnskab
+    countries: [DK]
+    languages: [da]
+  - query: bogholder
+    countries: [DK]
+    languages: [da]
+  - query: buhalterine apskaita
+    countries: [LT]
+    languages: [lt]
+  - query: buhalteris
+    countries: [LT]
+    languages: [lt]
+  # The category in English, in both markets: what an AI email assistant
+  # says about itself to a Danish or Lithuanian buyer.
+  - query: ai email assistant
+    countries: [DK, LT]
+
+# --------------------------------------------------------------------------
+# own - OUR page and OUR ad account. Read by engine/feedback.py, which stamps
+# them onto every record it writes for one of our own ads;
+# engine/discover.py validates the block at load and reads it no further.
+#
+# engine/measure.py does NOT open this file. It measures an ad by the id a
+# human pinned with `python -m engine.approval launch`, and an ad id is
+# globally unique on the Graph API - the token's `ads_read` on our own
+# account is what scopes the answer, so measure never has to be told which
+# account is ours. It is the account-level batched read, the one form nobody
+# here has verified against a live response, that would need ad_account_id.
+#
+#   page_id        the numeric id of OUR Facebook page, quoted
+#   page_name      the page name, as the record's channel
+#   ad_account_id  our ad account id as Ads Manager shows it, act_<digits>
+#
+# Unlike a blank page_id under pages above, which engine/discover.py
+# refuses by name at load, a blank block here is refused by nothing:
+# feedback reads it blank and writes every own record with page_id "" and
+# channel "own". So a clean `python -m engine.measure` run is no evidence
+# that this block is filled in - it costs a record's channel, not a call.
+# --------------------------------------------------------------------------
+own:
+  page_id:
+  page_name:
+  ad_account_id:

@@ -33,3 +33,10 @@
 Pillow>=10.0
 playwright>=1.40
 pytest>=8.0
+
+# google-genai and PyYAML arrive with the research/propose/measure pipeline
+# merged from main on 2026-09-20. genai drives the batched ad analysis (12 ads
+# per model call, which is why this repo needs its OWN Gemini key - see the
+# handoff note); PyYAML reads research/seeds.yaml.
+google-genai>=1.0
+PyYAML>=6.0
