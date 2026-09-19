@@ -676,6 +676,8 @@ Put to Dovy, with a recommendation each.
    only the derived fields plus the ad id and snapshot URL. Depends on the
    terms in section 6 step 3. The derived-only record is enough for learn; the
    verbatim one is what a writer would quote.
+
+   **TAKEN 2026-09-19: verbatim, in a private repository.** See 8a decision 7.
 7. **A second AI Studio key for this repository.** Free, and it doubles the
    daily headroom rather than sharing 20 calls a day per model with the reel
    sweep on the same Monday morning.
@@ -785,9 +787,14 @@ carries the versions the modules were actually built against.
   quotes it and `research/corpus/` is a private repository - but that is the
   default, not a ruling, and narrowing it later is a change to
   `engine/discover.py`'s `candidate()` and one field of the record.
-- **Decision 7, a second AI Studio key**, is still open. It is free and it is
-  the first lever if a Monday that runs both loops ever hits the 20-a-day
-  ceiling. `docs/COST.md` prices the collision.
+- **Decision 7, a second AI Studio key: TAKEN 2026-09-19, as recommended.**
+  `ad-engine` gets its own free AI Studio key rather than sharing
+  `reel-engine`'s. The 20-a-day cap is per model per PROJECT, so a second key
+  is a second allowance: a Monday that runs both research sweeps no longer has
+  a shared ceiling, and the failure it avoids is a 429 mid-run that throws away
+  work already done. It costs nothing. `docs/SECRETS.md` and
+  `docs/GETTING-LIVE.md` step 2 say to mint a NEW key here rather than paste
+  the sibling's.
 - **Decision 2 (longevity primary) and decision 8 (competitor countries)** were
   taken as recommended and needed no argument: `outlier_ratio` is reach-per-day
   over the page's own median, the per-page baseline is what stops absolute
@@ -797,6 +804,36 @@ carries the versions the modules were actually built against.
 - **Phase G, the Marketing API launch path**, is not built and is not started.
   Launching is a human in Ads Manager pasting an ad id back through
   `engine.approval launch`, exactly as phase E says.
+
+**7. The corpus stores creative text verbatim.** Decision 6, taken 2026-09-19
+as recommended, and taken WITHOUT the terms having been read - which is the
+part worth recording. Meta's Ad Library API terms page refuses automated
+fetch, so this session could not read it; every secondary source agrees that
+research, journalism and internal marketing insight are permitted uses and
+that the prohibitions are on republishing misleadingly and on profiling
+individuals, neither of which this does. That is secondary sourcing and not
+the terms, so it is a recommendation acted on rather than a finding.
+
+The posture that makes it defensible: the repository is PRIVATE, nothing
+republishes, and the reversal is small. Dropping `analysis.copy` from
+`engine/corpus.py`'s `REQUIRED_NESTED` and from `engine/analyse.py`'s record
+leaves the derived fields, the ad id and the snapshot URL - `engine/learn.py`
+counts exactly the same patterns either way, because it reads devices and
+bands rather than words. What would be lost is the ability to show a writer
+the line that actually worked.
+
+**8. A second AI Studio key for this repository.** Decision 7, taken
+2026-09-19 as recommended. See the section 8 note above.
+
+**9. The Danish and Lithuanian placeholders stay.** Not a section 8 question.
+Twelve strings across `creative/capacity.json` and `creative/hours.json` read
+`NEEDS_NATIVE_PROOFREAD`, and a native writes them from the English brief
+rather than correcting a machine draft. The placeholder is load-bearing, not
+cosmetic: `engine/gate.py` treats it as "not written yet" and refuses to score
+it as copy, so nothing machine-written can reach a live ad by accident. A
+draft sitting in those fields would defeat that, and a draft sitting elsewhere
+would be a second file to keep in sync. Nothing else is blocked by this - it
+matters only before an ad actually runs.
 
 ### What the first live run still has to prove
 
