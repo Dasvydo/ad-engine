@@ -391,23 +391,33 @@ def test_the_shipped_plan_stays_far_inside_one_hour():
     seeds = discover.load_seeds()
     planned = discover.plan(seeds)
 
-    groups: dict[tuple[str, ...], int] = {}
-    for page in seeds.pages:
-        key = tuple(page.countries or seeds.countries)
-        groups[key] = groups.get(key, 0) + 1
-    expected_page_calls = sum(
-        -(-count // discover.MAX_PAGE_IDS_PER_CALL) for count in groups.values()
-    )
+    expected_page_calls = len(seeds.pages) // discover.PAGE_IDS_PER_SEARCH
     assert planned["page_calls"] == expected_page_calls
     assert planned["query_calls"] == len(seeds.queries)
     assert planned["max_calls"] == (
         (expected_page_calls + len(seeds.queries)) * discover.DEFAULT_MAX_PAGES
     )
 
-    # A sweep and a same-hour re-run together stay under a fifth of the
-    # allowance. Two sweeps at a tenth each is the rule; the margin is what
-    # a hand-run --dry-run and a retry live in.
-    assert planned["max_calls"] < discover.HOURLY_BUDGET_CALLS / 10
+    # THE THRESHOLD MOVED, 2026-09-19, and deliberately. It was "a sweep
+    # stays under a tenth of the allowance", which one search per page could
+    # not hold: the shipped file went from 12 calls at the ceiling to 40.
+    # That was a trade, not a regression - ten page ids in one call silently
+    # dropped every page but the most recently active one (see
+    # test_each_page_id_is_its_own_search), so the old figure was cheap
+    # because it was fetching less than it claimed.
+    #
+    # What is pinned now is the same PROPERTY at the real numbers: the
+    # scheduled sweep, a same-hour re-run after a failure, and one hand-run
+    # retry all fit inside the 150 research.yml passes as --budget, and two
+    # sweeps stay inside the reported hourly ceiling. It goes red when the
+    # seeds file outgrows the budget - at about 21 pages - which is the
+    # moment to raise --budget or drop DEFAULT_MAX_PAGES, and is worth being
+    # told rather than discovering as a 613.
+    assert planned["max_calls"] * 3 <= 150, (
+        "three sweeps no longer fit inside research.yml's --budget 150; the "
+        "seeds file has outgrown it at %d pages" % len(seeds.pages)
+    )
+    assert planned["max_calls"] * 2 < discover.HOURLY_BUDGET_CALLS
 
 
 # ---------------------------------------------------------------------------
@@ -415,25 +425,46 @@ def test_the_shipped_plan_stays_far_inside_one_hour():
 # ---------------------------------------------------------------------------
 
 
-def test_page_ids_are_batched_ten_to_a_call():
+def test_each_page_id_is_its_own_search():
+    """One page per request, never two - the starvation guard.
+
+    This asserted batches of ten, because the archive accepts ten. MEASURED
+    2026-09-19: a real two-page search (Fyxer and Jace.ai, DK and LT, 1,260
+    ads between them) came back fifty Fyxer ads and nothing of Jace's. The
+    archive orders a result set by recency across the WHOLE batch, so inside
+    one call the page that posts most recently takes every slot, and a
+    page-mate contributes nothing - with no error, no empty-result warning,
+    and its ads sitting right there in the archive.
+
+    The damage compounds past the missing ads: outlier_ratio is computed per
+    page_id over one run's results, so a starved page scores NO_BASELINE,
+    sorts last in fanout._rank_key and is never chosen for analysis at all.
+    """
     api = FakeArchive(body())
     c = client(api)
     c.archive(countries=["DK"], page_ids=[str(n) for n in range(23)])
-    assert len(api.calls) == 3
-    assert c.quota.spent == 3
-    batches = [json.loads(api.params(i)["search_page_ids"]) for i in range(3)]
-    assert [len(b) for b in batches] == [10, 10, 3]
-    assert batches[0] == [str(n) for n in range(10)]
+
+    assert len(api.calls) == 23
+    assert c.quota.spent == 23
+    batches = [json.loads(api.params(i)["search_page_ids"]) for i in range(23)]
+    assert all(len(b) == 1 for b in batches), (
+        "two page ids in one search is the bug this test exists for: %r"
+        % [b for b in batches if len(b) != 1]
+    )
+    assert batches == [[str(n)] for n in range(23)], "order is the seeds' order"
+    assert discover.PAGE_IDS_PER_SEARCH == 1
+    # Still recorded, because it is a true fact about the API and the reason
+    # somebody will propose batching again.
     assert discover.MAX_PAGE_IDS_PER_CALL == 10
 
 
-def test_ten_page_ids_are_one_call_and_eleven_are_two():
+def test_a_page_costs_one_call_each_however_many_are_asked_for():
     api = FakeArchive(body())
     c = client(api)
     c.archive(countries=["DK"], page_ids=[str(n) for n in range(10)])
-    assert c.quota.spent == 1
+    assert c.quota.spent == 10
     c.archive(countries=["DK"], page_ids=[str(n) for n in range(11)])
-    assert c.quota.spent == 3
+    assert c.quota.spent == 21
 
 
 def test_countries_travel_as_a_json_list():
@@ -897,14 +928,26 @@ def test_a_seeded_page_beats_a_query_that_returns_the_same_ad():
     assert len(api.calls) == 2
 
 
-def test_a_batch_mixing_origins_attributes_each_ad_to_its_own_page():
+def test_each_ad_is_attributed_to_its_own_seeded_page():
+    """Origin is looked up per AD by page_id, not assumed per call.
+
+    Two pages of different origin sharing a country list used to share one
+    call, and this test proved the mixed batch was unpicked correctly. They
+    now get a call each (see test_each_page_id_is_its_own_search), so the
+    per-ad lookup guards something narrower but still real: a single-page
+    search that answers with an ad carrying a different page_id must take
+    that ad's own page's origin, or none.
+    """
     gosimple = discover.Page("gosimple", "GoSimple", "777", "icp-adjacent", ("GB",))
-    api = FakeArchive(body(ad("1", page_id="555", page_name="Fyxer"), ad("2", page_id="777", page_name="GoSimple")))
+    api = FakeArchive(
+        body(ad("1", page_id="555", page_name="Fyxer")),
+        body(ad("2", page_id="777", page_name="GoSimple")),
+    )
     seeds = discover.Seeds(countries=("DK",), pages=(FYXER, gosimple))
     rows = {r["id"]: r for r in discover.discover(seeds, client=client(api), today=TODAY)}
     assert rows["fb-1"]["origin"] == "competitor"
     assert rows["fb-2"]["origin"] == "icp-adjacent"
-    assert len(api.calls) == 1
+    assert len(api.calls) == 2
 
 
 def test_an_ad_from_a_page_nobody_asked_for_is_not_given_an_origin():
@@ -930,15 +973,23 @@ def test_a_page_runs_in_its_own_countries_and_the_record_says_so():
     assert rows[1]["metrics"]["countries"] == ["DK", "LT"]
 
 
-def test_pages_sharing_a_country_list_share_a_call():
+def test_each_page_is_searched_under_its_own_country_list():
+    """A page with no countries falls back to the file's; one with its own
+    keeps them. Pages sharing a list used to share a call and no longer do,
+    but the fallback they were sharing is the part that still matters."""
     a = discover.Page("a", "A", "1", "competitor", None)
     b = discover.Page("b", "B", "2", "icp-adjacent", None)
     c = discover.Page("c", "C", "3", "competitor", ("GB",))
     api = FakeArchive(body())
     discover.discover(discover.Seeds(countries=("DK",), pages=(a, b, c)), client=client(api), today=TODAY)
-    assert len(api.calls) == 2
-    assert json.loads(api.params(0)["search_page_ids"]) == ["1", "2"]
-    assert json.loads(api.params(1)["search_page_ids"]) == ["3"]
+
+    assert len(api.calls) == 3
+    sent = [
+        (json.loads(api.params(i)["search_page_ids"]),
+         json.loads(api.params(i)["ad_reached_countries"]))
+        for i in range(3)
+    ]
+    assert sent == [(["1"], ["DK"]), (["2"], ["DK"]), (["3"], ["GB"])]
 
 
 def test_a_query_carries_its_languages_to_the_request():
@@ -1243,14 +1294,14 @@ def test_fyxer_and_jace_are_seeded_by_page_id():
         )
 
 
-def test_pages_are_batched_per_country_list_not_per_file(tmp_path):
-    """Ten to a call WITHIN a country group, never across groups.
+def test_every_page_costs_one_search_whatever_its_country_list(tmp_path):
+    """page_calls is the number of pages. Nothing merges them.
 
-    Nothing tested this directly, which is how the two budget tests came to
-    re-derive page_calls as ceil(total / 10) and pass anyway. Three pages in
-    three different country groups cost three calls; the naive reading says
-    one. A synthetic file, because the shipped one would stop discriminating
-    the moment its country lists happened to line up again.
+    Written when pages went ten to a call and the budget tests re-derived
+    page_calls as ceil(total / 10), ignoring that plan() grouped by country
+    first - a formula that agreed only by coincidence. One page per search
+    retires the coincidence entirely, and this pins that: three country
+    lists or one, eleven pages cost eleven.
     """
     def seeds_for(rows):
         body = "countries: [DK]\npages:\n"
@@ -1266,22 +1317,16 @@ def test_pages_are_batched_per_country_list_not_per_file(tmp_path):
         path.write_text(body + "queries: []\n", encoding="utf-8")
         return discover.load_seeds(path)
 
-    # Three pages, three distinct country lists: one call each.
     spread = discover.plan(seeds_for([["DK"], ["LT"], ["DK", "LT"]]))
-    assert spread["pages"] == 3
-    assert spread["page_calls"] == 3, (
-        "pages in different country groups cannot share a call - the country "
-        "list is a parameter of the request, not of the page"
-    )
+    assert (spread["pages"], spread["page_calls"]) == (3, 3)
 
-    # Eleven pages, one country list: ten to a call, so two calls.
+    # Eleven pages on ONE country list: eleven searches, not two. This is the
+    # assertion that fails the moment somebody restores batching.
     packed = discover.plan(seeds_for([["DK"]] * 11))
-    assert packed["pages"] == 11
-    assert packed["page_calls"] == 2
+    assert (packed["pages"], packed["page_calls"]) == (11, 11)
 
-    # And the two rules compose: 11 DK + 1 LT is 2 + 1, not ceil(12 / 10).
     mixed = discover.plan(seeds_for([["DK"]] * 11 + [["LT"]]))
-    assert mixed["page_calls"] == 3
+    assert mixed["page_calls"] == 12
 
 
 def test_the_shipped_queries_are_the_markets_own_words():

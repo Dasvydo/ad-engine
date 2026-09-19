@@ -1190,20 +1190,23 @@ def test_the_shipped_seeds_file_prices_under_the_workflow_budget():
     # work went well. What docs/COST.md actually promises is HEADROOM: a sweep
     # and a same-hour re-run both fit inside the hourly allowance, and
     # research.yml passes --budget 150 against a ceiling of 200.
-    # CORRECTED 2026-09-19, with the twin of this line in
-    # tests/test_discover.py: discover.plan batches pages BY COUNTRY LIST and
-    # then ten to a call, so ceil(total / 10) is not the page cost. It matched
-    # only while the file's pages fell into two groups of 7 and 6.
-    groups: dict[tuple[str, ...], int] = {}
-    for page in seeds.pages:
-        key = tuple(page.countries or seeds.countries)
-        groups[key] = groups.get(key, 0) + 1
-    expected_searches = sum(
-        -(-count // discover.MAX_PAGE_IDS_PER_CALL) for count in groups.values()
-    ) + len(seeds.queries)
+    # One search per page (discover.PAGE_IDS_PER_SEARCH), one per query. This
+    # line has been wrong twice: first as ceil(total / 10), which ignored that
+    # plan() grouped by country and matched only by coincidence, and then as
+    # the grouped form, which the one-per-search change retired. Both are in
+    # the git log next to the measurement that caused them.
+    expected_searches = (
+        len(seeds.pages) // discover.PAGE_IDS_PER_SEARCH + len(seeds.queries)
+    )
     assert estimate["searches"] == expected_searches
     assert estimate["ad_library_calls"] == expected_searches * discover.DEFAULT_MAX_PAGES
-    assert estimate["ad_library_calls"] < 20 <= 150
+    # The headroom, re-derived: research.yml passes --budget 150 against a
+    # reported ceiling of 200, and one sweep must leave room for a same-hour
+    # re-run. Was `< 20` when pages went ten to a call; one search per page
+    # moved the ceiling to 40 and the PROPERTY - two sweeps inside the
+    # allowance - is what is pinned.
+    assert estimate["ad_library_calls"] * 2 < discover.HOURLY_BUDGET_CALLS
+    assert estimate["ad_library_calls"] < 150
     assert estimate["model_calls"] == 4
 
 

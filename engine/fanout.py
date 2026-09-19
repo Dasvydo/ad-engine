@@ -349,14 +349,14 @@ def _estimate(plan: dict, *, max_ads: int, budget: int, creatives: int) -> dict:
 
 
 def _no_competitor_watched(seeds) -> str | None:
-    """The fact the shipped research/seeds.yaml carries, said out loud.
+    """A seeds file watching no competitor, said out loud.
 
-    Every page it seeds is icp-adjacent; the two competitors reel-engine
-    watches on YouTube are commented out with a blank page_id, deliberately,
-    because a keyword search for either name found nothing of theirs and
-    inventing a page id would be a factual claim in a committed file.
-    Discovery is correct to search only what it is given, so this is the one
-    place that says which half of the market is not being watched.
+    This described the shipped file, which as of 2026-09-19 watches three
+    competitors - Echo You, Fyxer and Jace.ai - so the note it returns is now
+    the empty case rather than the normal one. The function stays because the
+    empty case is the one worth catching: discovery is correct to search only
+    what it is given, and a file that names only icp-adjacent pages is
+    watching half the market with nothing to say so.
     """
     if seeds is None or not (seeds.pages or seeds.queries):
         return None

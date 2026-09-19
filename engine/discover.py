@@ -133,9 +133,33 @@ UNIT_COSTS = {"ads_archive": 1}
 DEFAULT_LIMIT = 100
 DEFAULT_MAX_PAGES = 2
 
-# The archive takes up to ten page ids in one call. Batching is the
-# difference between one call and ten for the same data.
+# The archive ACCEPTS up to ten page ids in one call.
 MAX_PAGE_IDS_PER_CALL = 10
+
+# ...and we send one. This used to be ten, described as "the difference
+# between one call and ten for the same data". It is not the same data.
+#
+# MEASURED 2026-09-19, against the live archive: a search for Fyxer
+# (484462831408750) and Jace.ai (591862607340162) together, DK and LT, over
+# the 1,260 ads the two of them have, returned FIFTY FYXER ADS AND NOTHING
+# OF JACE'S. The archive orders a result set strictly by recency across the
+# whole batch, and every Fyxer ad is newer than Jace's newest - June 2026
+# against January. At DEFAULT_LIMIT x DEFAULT_MAX_PAGES = 200 slots, Jace
+# would have contributed nothing, this week and every week, with no error
+# and no empty-result warning anywhere: its ads exist, they were asked for,
+# and they were simply outranked by a page-mate that posts more.
+#
+# That is worse than the call it saves, and it compounds. `outlier_ratio` is
+# computed per page_id over the ads of THIS run, so a starved page does not
+# merely arrive thin - it arrives with fewer than MIN_BASELINE_ADS peers,
+# scores NO_BASELINE, sorts last in fanout._rank_key and is never chosen for
+# analysis. A page can be seeded, searched, returned and still never reach
+# the corpus.
+#
+# One page per search costs 15 searches instead of 3 on the shipped file -
+# 40 calls at the ceiling against a budget of 200, and research.yml's
+# --budget 150. Cheap, next to a seed that silently watches nothing.
+PAGE_IDS_PER_SEARCH = 1
 
 ORIGINS = ("competitor", "icp-adjacent")
 
@@ -895,8 +919,11 @@ class AdLibraryClient:
 
         batches = [None]
         if page_ids:
+            # PAGE_IDS_PER_SEARCH, not MAX_PAGE_IDS_PER_CALL: the archive
+            # accepts ten, and sending ten loses the smaller pages. See the
+            # constant.
             batches = list(_batched(list(dict.fromkeys(str(p) for p in page_ids)),
-                                    MAX_PAGE_IDS_PER_CALL))
+                                    PAGE_IDS_PER_SEARCH))
 
         ads: list[dict] = []
         for batch in batches:
@@ -1202,13 +1229,15 @@ def _resolved_countries(seed, seeds: Seeds) -> tuple[str, ...]:
 def plan(seeds: Seeds | None = None, *, max_pages: int = DEFAULT_MAX_PAGES) -> dict:
     """How many calls a run of these seeds costs, without a token or a socket.
 
-    Pages sharing a country list go ten to a call; each query is a call; each
-    search may page up to `max_pages`. The spread is the floor to the ceiling.
+    One search per page, under that page's own country list; one per query;
+    each search may page up to `max_pages`. The spread is the floor to the
+    ceiling. Pages used to go ten to a call - see PAGE_IDS_PER_SEARCH for the
+    measurement that ended it.
     """
     seeds = seeds if seeds is not None else load_seeds()
     batches = 0
     for pages in _pages_by_countries(seeds).values():
-        batches += -(-len(pages) // MAX_PAGE_IDS_PER_CALL)
+        batches += -(-len(pages) // PAGE_IDS_PER_SEARCH)
     searches = batches + len(seeds.queries)
     return {
         "pages": len(seeds.pages),
