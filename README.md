@@ -5,23 +5,52 @@ claims reaching a public ad — and a research loop that reads what the market i
 already running, counts what repeats, and writes the next ad from that rather
 than from taste.
 
+> **Campaign-wide documents live in `campaign-n8n/ops/`.** This repo is one of six
+> batches; the status of all of them, the setup guide for a new machine, the
+> decisions taken and what is still waiting on a human are kept together there:
+>
+> | File | What |
+> |---|---|
+> | `ops/STATUS.md` | audit of all six batches |
+> | `ops/NEW-PC-SETUP.md` | clone, install and prove every repo from scratch |
+> | `ops/DECISIONS.md` | what was decided, why, and how to reverse it |
+> | `ops/NIGHT-RUN.md` | the current task plan and its live status |
+> | `ops/HANDOFF.md` | what to pick up next |
+>
+> The six repos must be cloned as **siblings under one parent directory** -
+> several tools reach across them by relative path, and this repo's own contract
+> tests locate `campaign-ledger` that way.
+
+
 Sibling to `reel-engine` and `outreach-engine`; all three work from the same
 locked brief in `docs/ICP-BRIEF.md`.
 
 ```
 audiences/<name>.json     who         targeting specs, ranked by priority
 creative/<variant>.json   the words   hand-written ad copy, one per A/B arm
+creative/copy/            the words   six objection-mapped campaign variants
+creative/static/          the images  the typeset ad pipeline, 8 creatives x 2 ratios
+creative/video/           the cut     how to cut reel-engine masters to 15s ads
 claims/evidence.json      the truth   what may be claimed, what may not, and
                                       which offers this business actually makes
 research/                 evidence    seeds, the ad corpus, patterns, the weekly
-                                      report, what our own ads did
+                                      report, what our own ads did, and five
+                                      competitor-sourced objections
 queue/                    the state   the segment backlog and one JSON per ad
-                                      job — its directory is its status
+                                      job - its directory is its status
 engine/                   the code    the research loop, the claims gate,
                                       approval, measure, feed-back
+report/                   the numbers daily Meta Insights into campaign.ad_stats
+campaigns/                the build   Ads Manager build sheet and pixel install
 tools/                    the edges   backlog sync, a push that retries
 docs/                     the why     scope, contracts, cost, secrets
+docs/FUNNEL-HANDOFF.md    the seam    where the click lands, and what comes back
 ```
+
+**Read `docs/FUNNEL-HANDOFF.md` first.** It is the contract with the landing page:
+the destination URL, the UTM convention that `campaign-site` already enforces in
+code, and the four pixel events the page sends back. Two of its items block the
+first ad.
 
 ---
 
@@ -52,8 +81,16 @@ account-based air cover over outreach, not a prospecting channel:
 > minimum — but only with both countries and all three verticals combined. A
 > single-vertical slice will under-deliver.
 
-Audiences are ranked accordingly: `outreach-list` (1), `site-retargeting` (2),
-`broad-interest` (3, kept for practice rather than results).
+Audiences are ranked accordingly: `outreach-list` (1), `site-retargeting` and
+`pricing-viewers` (2), `broad-interest` (3, kept for practice rather than results).
+
+**That minimum decided the ad-set shape.** Because the list clears 1,000 only when
+both countries are combined, it cannot be split into a Danish ad set and a
+Lithuanian one — that split *is* the slice the note above warns about. Decided
+2026-09-17: **one combined ad set, on the English landing page.** Delivery over
+localisation, on the one audience that cannot have both. The two pixel audiences
+are built from page traffic and arrive already language-sorted, so they keep their
+`/da` and `/lt` rows. Full matrix in `docs/FUNNEL-HANDOFF.md`.
 
 All PII is SHA-256 hashed after normalisation, per Meta's spec, so the raw list
 never leaves this machine.
@@ -232,6 +269,11 @@ says so as a skip, not a failure.
 backs.** `claims/evidence.json` records what may be claimed; `engine/gate.py`
 scans copy for measurable assertions and blocks any that aren't verified.
 
+`--landing` points the same scan at the landing page's copy, because the ad and
+the page behind the click are one unit to a reader. Those findings are advisory
+and do not fail the run: the page may state a modelled figure while carrying its
+disclosure in the same eyeline, and an ad may not state it at all.
+
 Currently blocked, deliberately:
 
 | Claim | Why |
@@ -239,6 +281,8 @@ Currently blocked, deliberately:
 | Any time-saving number | No customer outcome exists. The pricing page's "10 hours" is a model, not an observation. |
 | "Trusted by N firms", logos, testimonials | Zero closed customers as of 2026-08-31. |
 | Any percentage | Nothing has been measured. |
+| Any money-saved figure | The landing page renders one (`430 USD saved per month, for each person`). It is a model, labelled as one on the page. An ad carries no disclosure, so it may not echo it. |
+| Any return multiple — `12x`, "pays for itself" | Computed on the page from that same modelled saving, and it moves whenever the price moves. |
 
 Currently allowed, because each is a verifiable product fact: never auto-sends ·
 never leaves Outlook · EU-hosted · answers from the firm's own documents · a
@@ -439,10 +483,18 @@ consumes what they write. The order is not cosmetic.
 
 ## Known state
 
-- **Meta pixel is not installed on doviloop.dev.** `site-retargeting` cannot be
-  built until it is, and it needs to start collecting well before ads run or
-  there will be nobody in it. **Do this first — it costs nothing and it is the
-  only audience that compounds.**
+- **⛔ There is no stable destination URL.** `teams.doviloop.dev` 301s to the
+  product site through a Porkbun URL Forward (CNAME to `pixie.porkbun.com`), and the landing page serves from
+  `campaign-site-azure.vercel.app`, which Meta cannot verify. **Nothing is safe to
+  put in an ad until this is fixed.** Measured 2026-09-16 — see
+  `docs/FUNNEL-HANDOFF.md`, Blocker 1.
+- **The Meta pixel is built, not live.** It is installed and consent-gated on the
+  campaign landing page, and its gate is tested (`npm run verify:consent`, 23/23
+  PASS). It stays inert until `VITE_META_PIXEL_ID` is set in that project's Vercel
+  settings and the page is redeployed. `site-retargeting` and `pricing-viewers`
+  have nobody in them until then, and both need a head start on the ads. **Do this
+  first — it costs nothing and they are the only audiences that compound.** No
+  pixel is on `www.doviloop.dev`, so product-site traffic is in neither pool.
 - **Revenue is switched off** in the product (`TEST_MODE` plus two `BYPASS_*`
   flags). Traffic can arrive and convert to a conversation, but not to a payment.
 - Danish and Lithuanian creative is drafted, **not native-checked**. Every `da`
@@ -488,6 +540,80 @@ budgeted inside.
 
 `docs/AD-RESEARCH-SCOPE.md` is why each stage exists and what it could not
 verify; `docs/CONTRACTS.md` is exactly what each one reads and writes.
+
+---
+
+## The teams_q4 campaign (Batch E, Sept to Oct 2026)
+
+The repo above is the pre-campaign account-based layer. On top of it sits a
+**retargeting** campaign for `campaign-site-azure.vercel.app`, under EUR 500 a month,
+English only in all three markets.
+
+```bash
+python -m engine.cli check                 # claims gate, now recurses into creative/
+python -m creative.static.render all       # 8 creatives x 2 ratios -> creative/static/out/
+python -m creative.static.vet              # the brand lock, as an automated check
+python report/pull_ad_stats.py --dry-run   # Meta Insights -> campaign.ad_stats, on a fixture
+python -m pytest -q
+```
+
+Read in this order:
+
+1. **`research/objections.md`** first. Everything else is downstream of it. Five
+   objections for accounting, insurance and housing admin, each traced to a
+   named public competitor source rather than invented.
+2. `campaigns/structure.md` to build the campaign by hand in about 20 minutes.
+3. `campaigns/pixel-install.md` before anything else actually happens, because
+   every audience is empty until the pixel has been collecting for two weeks.
+4. `BLOCKED.md` and `RUN-REPORT.md` for what is missing and what Dovy has to do.
+
+### Three things about this campaign that are easy to get wrong
+
+- **It measures clicks, not conversions.** At EUR 16 a day there are not enough
+  lead events to compare ad sets on cost per lead. `campaigns/structure.md` says
+  this at length and does not soften it.
+- **The claims gate governs every word.** No time saving figure, no percentage,
+  no customer count appears in any of the six copy variants or the eight
+  creatives. Dovy confirmed on 2026-09-06 that the ROI figures are a model,
+  not a measurement, so the gate's call stands. A modelled figure may appear
+  only in an ad that says so itself; see `BLOCKED.md` entry 3 and
+  `claims/evidence.json`.
+- **No ad video gets shot.** `creative/video/cut-spec.md` is a cutting spec for
+  reel-engine's weekly English masters, trimmed to 15 seconds with a harder CTA.
+
+## The ledger seam
+
+`report/pull_ad_stats.py` writes one `campaign.ad_stats` row per ad set per day
+through Batch B's `campaign_db.snapshot_ad_stats`. The import is defensive
+(`report/pull_ad_stats.py:86`): while `campaign_db` is not importable it falls
+back to `report/ledger_shim.py`, which writes the same row shape to
+`report/out/ad_stats.jsonl` and says loudly that the ledger is not connected.
+That fallback is why this repo was testable before Batch B landed; it is not a
+substitute for the ledger.
+
+`campaign_db.py` lives in the sibling `campaign-ledger` repo. Put its `src` on
+the Python path to write to Postgres instead of JSONL:
+
+```bash
+export PYTHONPATH=/path/to/campaign-ledger/src
+python report/pull_ad_stats.py --date 2026-09-08
+```
+
+`campaign_db.py` reads `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` itself. This
+repo holds neither, and never connects to Supabase directly - its own
+`.env.example` carries only the Meta credentials.
+
+The column list in `report/ledger_shim.py` is fixed by Batch B's schema:
+`campaign_name`, `ad_set_name`, `creative_content_id`, `captured_on`,
+`spend_eur`, `impressions`, `clicks`, `leads`. `id` is generated by the
+database and is never written from here.
+
+Unlike the other two engines, this suite is unaffected by `PYTHONPATH` -
+**89 passed** either way, and `tests/test_ad_stats.py` is **13 passed** against
+the real client. Both verified 2026-09-08.
+
+Batch F's `WF-C6` invokes this every Friday as
+`cd <ad_engine_repo> && python3 report/pull_ad_stats.py --date <yesterday>`.
 
 ## Why this runs at all
 

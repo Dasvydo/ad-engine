@@ -1,0 +1,20 @@
+{
+  "id": "s03-no-new-app",
+  "maps_to": "objection-3: we are not moving out of Outlook and nobody has time for a rollout",
+  "job": "Kill the rollout fear in one line for a firm with no in-house IT.",
+  "theme": "light",
+  "eyebrow": "Nothing to install",
+  "headline": ["No new app.", "Just a fuller", "drafts folder."],
+  "amber": "card_row",
+  "amber_word": null,
+  "subline": "Replies appear in the Outlook mailbox your team already opens every morning. No second screen, no new login, nothing to learn.",
+  "headline_px": {"4x5": 100, "1x1": 88},
+  "card": {
+    "title": "Outlook  ·  Drafts",
+    "rows": [
+      {"from": "Re: Vestergaard ApS", "subject": "When is the VAT deadline this quarter?", "draft": true},
+      {"from": "Re: Lindholm Ejendomme", "subject": "What do you need from us for the annual accounts?", "draft": true},
+      {"from": "Re: Nordvest Forsikring", "subject": "Does the policy cover the storm damage?", "draft": true}
+    ]
+  }
+}

@@ -45,3 +45,6 @@ research/media/*
 #   research/patterns.json  what the corpus counts to.
 #   research/selection.json the weekly report, written on every live run.
 #   research/measurements.json  what our own launched ads did.
+
+# Report output from report/pull_ad_stats.py.
+report/out/

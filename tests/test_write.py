@@ -965,8 +965,15 @@ def test_no_line_of_the_brief_reaches_the_prompt():
     generate(client=client, concept=CONCEPT, patterns=[PATTERN])
     text = sent(client)
     assert "ICP-BRIEF" not in text
-    for phrase in ("$49", "what do I make per hour", "700\u2013800 firms",
-                   "Design partner (first 10)", "Walk away from"):
+    # Probes chosen to survive a price change. "$49" and "Design partner
+    # (first 10)" were withdrawn from the brief when the 2026-09-06 price
+    # decision landed, which turned this test's own guard message - "the brief
+    # moved; pick another distinctive phrase" - into instructions. Deliberately
+    # none of these is a price: the number is being reworked and a probe that
+    # tracks it will break this test again for no reason.
+    for phrase in ("what do I make per hour", "700\u2013800 firms",
+                   "Design partners (first 10)", "Walk away from",
+                   "the most defensible thing on the board"):
         assert phrase in brief, "the brief moved; pick another distinctive phrase"
         assert phrase not in text, phrase
     lines = [ln.strip() for ln in brief.splitlines()]
