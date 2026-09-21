@@ -610,8 +610,10 @@ In order, with what each one unblocks.
 2. **Page ids for the seed file.** Open each competitor and ICP-adjacent page
    in the Ad Library UI and read the id out of the URL, or take it from the
    MCP probe's `page_id`. Starting list from this session's probe and
-   `reel-engine`'s seeds: Fyxer, Jace AI (both may run nowhere in the EU -
-   check before seeding, a page that returns nothing costs a call every week),
+   `reel-engine`'s seeds: Fyxer, Jace AI (**checked 2026-09-21 - both DO run
+   in the EU: Fyxer 1,506 ads, Jace 331, across IE/DE/NL/FR/ES/IT/PL/SE/FI/DK/
+   BE/AT. Seed them. The worry that they cost a call a week for nothing is
+   retired; every one of those ads carries an `eu_total_reach`**),
    Balance, GoSimple, and the Danish and Lithuanian accounting-software pages
    (Dinero, e-conomic, Billy, Rivile - unverified, chosen as examples of the
    kind). *Unblocks a corpus with a per-page baseline.*
