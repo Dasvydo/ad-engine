@@ -86,6 +86,29 @@ out of the environment.
 1. **Verify your identity at `facebook.com/ID`.** A government id, and Meta
    takes one to three business days. Nothing below works before this, and it is
    the long pole - start it first. *Unblocks everything on this page.*
+
+   ⚠️ **The flow asks you to "Choose reason". Pick "Running ads about social
+   issues, elections or politics"** - not "None of the above". Meta reuses the
+   political-advertiser identity check as the gate on Ad Library API access,
+   and its own API page sends you down that path. Confirmed 2026-09-21 against
+   Meta's Ad Library API page and the Graph API `ads_archive` reference.
+
+   **This does not make you a political advertiser and attaches no "Paid for
+   by" disclaimer.** Identity confirmation is the prerequisite; creating a
+   disclaimer is a separate, deliberate step you simply do not take.
+
+   Have **proof of residence** ready as well as the id - several current guides
+   report Meta asking for both, which this page previously did not say.
+
+   ⚠️ Meta's stated turnaround is **1-3 business days**; third-party guides
+   report **2-7**. Plan for the longer figure.
+
+   **Why the EU check in `AD-RESEARCH-SCOPE.md` step 2 matters so much:** the
+   `ads_archive` reference states that ads which did not reach any EU location
+   return **only** if they are about social issues, elections or politics. A
+   commercial page that never ran in the EU is therefore invisible to this API
+   no matter how good the token is. Fyxer and Jace were checked on 2026-09-21
+   and both deliver in the EU, which is the only reason they are seedable.
 2. **Create a Meta developer app** at `developers.facebook.com` and add the
    **Ad Library API** product to it. This is the product that makes
    `ads_archive` answer at all. *Unblocks discovery.*
