@@ -1,7 +1,7 @@
 # Competitor teardown — Meta, email-AI category
 
 **Swept 2026-09-21** via the Meta Ad Library through the MCP connector (`ads_library_search`).
-Raw: `research/corpus/2026-09-21-competitor-sweep.json`.
+Raw: `research/manual-sweeps/2026-09-21-competitor-sweep.json`.
 
 ---
 
