@@ -1,0 +1,169 @@
+{
+ "swept_at": "2026-09-21T00:00:00Z",
+ "source": "Meta Ad Library via MCP connector (ads_library_search)",
+ "note": "Commercial ads expose NO performance fields. Survival + repetition are the only proxies.",
+ "returned_fields": [
+  "id",
+  "page_id",
+  "page_name",
+  "ad_creative_link_title",
+  "ad_creation_time",
+  "ad_delivery_start_time",
+  "ad_snapshot_url",
+  "currency"
+ ],
+ "pages": {
+  "Echo You": {
+   "page_id": "1068016506404036",
+   "markets": [
+    "DK",
+    "LT"
+   ],
+   "ever": 88,
+   "active": 16,
+   "newest_ad": "2026-09-16",
+   "burst_window_s": 29,
+   "state": "ACTIVE",
+   "distinct_active_headlines": 13,
+   "headlines": [
+    {
+     "t": "Få styr på de vigtigste mails",
+     "id": "2618586348592513"
+    },
+    {
+     "t": "Mere overblik. Mindre mailtid.",
+     "id": "2096549427892154"
+    },
+    {
+     "t": "Den enkle AI løsning til teams",
+     "id": "2342044913298301"
+    },
+    {
+     "t": "Computerworld skriver om EchoYou",
+     "id": "28483645404601660"
+    },
+    {
+     "t": "Email og kalender samlet ét sted",
+     "id": "1063304842997712"
+    },
+    {
+     "t": "Din indbakke. Håndteret.",
+     "id": "4336165009851043"
+    },
+    {
+     "t": "Brug op til 90 % mindre tid på mail",
+     "id": "1172540888797301"
+    },
+    {
+     "t": "Mail og kalender. Ét sted.",
+     "id": "937100702784392"
+    },
+    {
+     "t": "Led virksomheden. Ikke indbakken.",
+     "id": "1715183669538306"
+    },
+    {
+     "t": "Få styr på din indbakke",
+     "id": "1129762716145054"
+    },
+    {
+     "t": "AI Email Assistant, Calendar Management Tool with Unified Inbox",
+     "id": "1887503635990695"
+    },
+    {
+     "t": "AI-svar, der lyder som dig",
+     "id": "2904329706626267"
+    },
+    {
+     "t": "Stop med at tjekke alt selv",
+     "id": "1403929904417214"
+    }
+   ]
+  },
+  "Fyxer": {
+   "page_id": "484462831408750",
+   "markets": [
+    "GB",
+    "US",
+    "IE"
+   ],
+   "ever": 1718,
+   "active": 0,
+   "newest_ad": "2026-06-10",
+   "state": "DARK 102 days",
+   "distinct_headlines": 1,
+   "headlines": [
+    {
+     "t": "Your AI Email Assistant",
+     "id": "768972482970136"
+    }
+   ]
+  },
+  "Jace.ai": {
+   "page_id": "591862607340162",
+   "markets": [
+    "GB",
+    "US"
+   ],
+   "ever": 446,
+   "active": 0,
+   "newest_ad": "2026-02-16",
+   "state": "DARK 216 days",
+   "distinct_headlines": 5,
+   "headlines": [
+    {
+     "t": "Meet your new Inbox",
+     "id": "4273398122912078",
+     "n": 3
+    },
+    {
+     "t": "Change the way of using inbox",
+     "id": "2396178714160576",
+     "n": 3
+    },
+    {
+     "t": "A Higher Standard For Work Email 📧",
+     "id": "1263035382411969",
+     "n": 2
+    },
+    {
+     "t": "Skip the busywork.",
+     "id": "806500165790822",
+     "n": 2
+    },
+    {
+     "t": "Your AI for Email",
+     "id": "1355994476544038",
+     "n": 1
+    },
+    {
+     "t": "{{product.name}}  (unfilled catalog template)",
+     "id": "1367991791748437",
+     "n": 39
+    }
+   ]
+  }
+ },
+ "keyword_sweeps": {
+  "'AI email assistant inbox' DK+SE+NO ACTIVE": {
+   "total": 5,
+   "real_competitors": [
+    "Echo You"
+   ],
+   "noise": [
+    "WellyBox (receipts)",
+    "Atlas - AI Scanner (receipts)",
+    "BizBees.AI (PLN)"
+   ]
+  },
+  "'el paštas AI verslui' LT ACTIVE": {
+   "total": 0
+  },
+  "'email drafts Outlook AI' DK+LT ACTIVE": {
+   "total": 1,
+   "noise": [
+    "Marcus Levin - accounting AI course"
+   ]
+  }
+ }
+}
