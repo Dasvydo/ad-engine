@@ -178,11 +178,11 @@ DKK 35/day = USD 5.39, so it complies only if **CPC ≤ USD 0.54 (DKK 3.50)**.
 | CPC benchmark | Meta's rule needs | vs DKK 35 |
 |---|---|---|
 | Traffic objective, all industries $0.70 | USD 7.00/day = **DKK 45** | 1.3x short |
-| Europe, all objectives $1.18 | USD 11.80/day = **DKK 88** | 2.5x short |
-| B2B / SaaS $2.94 | USD 29.40/day = **DKK 219** | 6.3x short |
+| Europe, all objectives $1.18 | USD 11.80/day = **DKK 77** | 2.2x short |
+| B2B / SaaS $2.94 | USD 29.40/day = **DKK 191** | 5.5x short |
 
 **DKK 35/day sits below Meta's own stated minimum for this objective**, by
-somewhere between 1.3x and 6x depending on which CPC you land on. This is not a
+somewhere between 1.3x and 5.5x depending on which CPC you land on. This is not a
 practitioner opinion — it is Meta's published guidance, and it is checkable
 against your own CPC in week one.
 
