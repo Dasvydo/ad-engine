@@ -177,3 +177,75 @@ and the deployed page does not. Resolve before that branch merges.
    nobody in the set offers one)?
 2. Anything in the snapshots above that you want the ads to answer directly.
 3. The `free_trial` contradiction in §5.
+
+---
+
+## 7. Addendum 2026-09-21 — can we get clicks or views?
+
+Asked directly: *top 3 best performing ads for Jace and Fyxer, with clicks/views.*
+
+### Clicks — no. Not obtainable by anyone.
+
+Confirmed three independent ways:
+1. The connector's response carries 8 fields across 8 calls. No click, CTR or impression field ever appears.
+2. Meta publishes spend/impressions/demographics for `POLITICAL_AND_ISSUE_ADS` only.
+3. This repo already reached the same conclusion — `engine/discover.py:12`:
+   > *"There is no view count. A commercial ad in the archive carries no spend, no impressions, no clicks and nothing social."*
+
+Any tool selling "competitor CTR" is modelling it, not reading it.
+
+### Views — yes, as `eu_total_reach`, and both pages qualify
+
+The EU DSA forces Meta to publish a reach figure for every ad delivered in the EU,
+commercial ones included. Both ran in the EU:
+
+| Page | EU ads (IE/DE/NL/FR/ES/IT/PL/SE/FI/DK/BE/AT) |
+|---|---|
+| Fyxer | **1,506** |
+| Jace.ai | **331** |
+
+So the number exists. **The MCP connector does not return it** — its field set is fixed
+and reach is not in it.
+
+### The repo was built for exactly this, and has never run
+
+`engine/discover.py` already requests the right fields:
+
+```
+ad_delivery_stop_time · eu_total_reach · ad_creative_bodies
+ad_creative_link_titles · publisher_platforms · languages
+```
+
+`ad_creative_bodies` is the **body copy** the connector withholds. `reach_per_day()`
+(`discover.py:1187`) divides `eu_total_reach` by days running. The ranking model is
+longevity first, reach/day as numerator, variant count as scale.
+
+**Unblock: `META_ACCESS_TOKEN`.** With it, `python tools/first_live_call.py` is one
+request that writes nothing and prints documented fields against what actually arrives.
+
+⚠️ `FIELDS` carries `TODO(integration): UNVERIFIED AGAINST A LIVE RESPONSE`. The names
+came from Meta's reference page, not a real reply. A wrong name is a 400 that names
+itself. So the token makes this possible, not instant.
+
+### Best available ranking today (proxy, not performance)
+
+Sampled 100 of Jace's ads (50 GB/US + 50 EU). Ranked by **repetition** — how many
+times they cloned the line.
+
+| # | Jace headline | Clones in sample |
+|---|---|---|
+| 1 | A Higher Standard For Work Email 📧 | 6 |
+| 2 | Your AI for Email | 5 |
+| 3 | AI-Powered Email Assistant 👉 | 4 |
+| 4 | Meet your new Inbox | 3 |
+| 5 | Change the way of using inbox | 3 |
+| 6 | Skip the busywork. | 2 |
+
+`{{product.name}}` — the unfilled catalog template — is ~78 of the 100 sampled.
+Jace ran 2025-12-06 → 2026-02-16, then stopped.
+
+**Fyxer has no top 3.** One headline, *"Your AI Email Assistant"*, across every ad in
+both samples. That is the finding, not a gap in the data.
+
+This ranking says what they *committed budget to*, not what worked. Only
+`eu_total_reach` ÷ days running gets closer, and that needs the token.
