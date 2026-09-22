@@ -48,3 +48,4 @@ research/media/*
 
 # Report output from report/pull_ad_stats.py.
 report/out/
+build/

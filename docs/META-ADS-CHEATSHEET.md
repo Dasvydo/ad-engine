@@ -156,3 +156,11 @@ roughly which objection provokes a reaction · gross failure.
 
 Six weeks and EUR 700 cannot answer the last one. Judge this on what it
 teaches, not on pipeline.
+
+---
+
+*Rebuild the PDF after editing this file — the markdown is canonical, the PDF is derived:*
+
+```
+python tools/md_to_pdf.py docs/META-ADS-CHEATSHEET.md -o build/cheatsheet.pdf
+```
