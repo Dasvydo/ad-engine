@@ -10,7 +10,7 @@
   "description": "One voice profile per person",
   "language": "en",
   "cta": "LEARN_MORE",
-  "destination": "https://campaign-site-azure.vercel.app/?utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content=v2-voice",
+  "destination": "https://teams.doviloop.dev/?utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content=v2-voice",
   "utm_template": "utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content={creative_id}",
   "_note": "English only, all markets, to keep spend down. Danish and Lithuanian localisation is a decision for after the first numbers arrive. utm_content carries this variant id so report/pull_ad_stats.py can join spend back to a creative."
 }

@@ -5,6 +5,7 @@ one destination) are cheaper to enforce here than to catch in Ads Manager.
 """
 
 import json
+from urllib.parse import urlparse
 import sys
 from pathlib import Path
 
@@ -20,13 +21,19 @@ STATIC_SPECS = sorted((ROOT / "creative" / "static" / "specs").glob("*.json"))
 
 UTM = "utm_source=meta&utm_medium=paid&utm_campaign=teams_q4&utm_content="
 
-# The campaign origin. NOT teams.doviloop.dev: that host exists but 301s to
-# https://www.doviloop.dev/, so an ad pointed at it lands the visitor on the
-# product home page with no qualifier, no lead form and none of this campaign's
-# instrumentation - and it does that silently, returning 200 the whole way.
-# Measured 2026-09-14. If the subdomain is ever repointed at the campaign site,
-# change it here and the six variants follow.
-ORIGIN = "https://campaign-site-azure.vercel.app"
+# The campaign origin.
+#
+# This was campaign-site-azure.vercel.app until 2026-09-18, because
+# teams.doviloop.dev then 301'd to https://www.doviloop.dev/ and an ad pointed
+# at it landed the visitor on the product home page - no qualifier, no lead
+# form, none of this campaign's content. That was measured 2026-09-14 and the
+# note here told the next reader to change this constant if the subdomain were
+# ever repointed at the campaign site.
+#
+# It was. A `teams` CNAME beating the *.doviloop.dev wildcard was added
+# 2026-09-18, and on 2026-09-22 all three locales return 200 with zero
+# redirects and the pixel in the bundle. So this is that change.
+ORIGIN = "https://teams.doviloop.dev"
 
 
 def _load(path):
@@ -82,14 +89,25 @@ def test_destination_is_the_campaign_origin_with_the_exact_utm(path):
     assert UTM + spec["id"] in spec["destination"]
 
 
+# The product site. Paid traffic landing here gets the product home page - no
+# qualifier, no lead form, none of this campaign's content - and it answers 200,
+# so the mistake costs budget without ever looking broken.
+PRODUCT_HOSTS = {"doviloop.dev", "www.doviloop.dev"}
+
+
 @pytest.mark.parametrize("path", COPY, ids=lambda p: p.stem)
 def test_destination_never_points_at_the_product_site(path):
-    """The failure this guards against is silent, which is why it is its own
-    test. teams.doviloop.dev and doviloop.dev both answer 200 after a redirect,
-    so a wrong destination costs budget without ever looking broken."""
+    """Compares the parsed host, not a substring.
+
+    Until 2026-09-18 this rejected the literal string "teams.doviloop.dev",
+    which was correct then - that host 301'd to the product site. After the
+    cutover it is the campaign site, but "doviloop.dev" is a substring of it,
+    so a substring guard now rejects the very host the campaign runs on.
+    """
     dest = _load(path)["destination"]
-    for dead in ("teams.doviloop.dev", "doviloop.dev"):
-        assert dead not in dest, f"{dest} sends paid traffic off the campaign"
+    host = urlparse(dest).hostname
+    assert host not in PRODUCT_HOSTS, f"{dest} sends paid traffic to the product site"
+    assert host == urlparse(ORIGIN).hostname, f"{dest} is not the campaign origin"
 
 
 @pytest.mark.parametrize("path", COPY, ids=lambda p: p.stem)
