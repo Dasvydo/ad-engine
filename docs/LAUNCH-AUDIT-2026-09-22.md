@@ -10,6 +10,34 @@ and Meta Ads Manager.
 
 ---
 
+## Status, updated 2026-09-22 after the fixes landed
+
+`campaign-site@18cbaeb` is live on `campaign/a-site`. Re-verified against the
+production site, both viewports:
+
+| | Was | Now |
+|---|---|---|
+| **M2** duplicate PageView | 2 per pageload, one `noscript=1` | **beacon gone** ✅ |
+| **M3** `ViewContent` on a phone | could not fire, ceiling 0.494 vs a 0.50 gate | **fires** ✅ |
+| **M3** `ViewContent` on desktop | fired | still fires ✅ |
+| **M1** PostHog | silently dropping every event | **still dropping** — needs an EU key |
+
+The dwell still discriminates, checked at 390x844: a scroll straight past does
+not fire, a 900ms glance does not fire, stopping on the price does.
+
+⚠️ **M1 was deliberately not "fixed" by moving the host.** All three locales tell
+the visitor, inside the consent dialog, that PostHog is hosted in the EU. Pointing
+the ingest host at US to make the key work would make that sentence false at the
+moment consent is asked for. `npm run verify:posthog` now fails either way round -
+a key that does not resolve at the configured host, or a host outside the EU while
+the copy still promises EU. The decision is the founder's: a new PostHog project on
+EU cloud (keeps the copy true), or staying on US and rewriting the consent copy in
+en, da and lt.
+
+**B1, B2, M4, M5 and M6 below are unchanged and still open.**
+
+---
+
 ## 0. Verdict
 
 **The funnel works end to end. Two things block delivery and three corrupt measurement.**
