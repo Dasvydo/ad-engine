@@ -1,118 +1,92 @@
-# Launch-film plan: InboxSolved, restructured
+# Launch-film plan: "The calm desk", v3's storyline turned into a real ad
 
-Written 2026-10-04. Three inputs:
-- the founder's `DoviLoop_InboxSolved_v3.mp4`, made with Da Vinci + Seedance and now at `flow-savvy-automations/video/sources/`;
-- Tim Scheuer's LinkedIn post and his YouTube video `wdZIE2jCPFg` (transcript pasted 2026-10-04);
-- the kit that video points to, `github.com/timscheuerai/launch-video-kit` (MIT). I read its README through a summary and did not clone it.
+Updated 2026-10-04, after the founder's direction: **keep v3's storyline, not its footage**, and make the pictures tell that story inside the house 8-beat structure.
 
-The structure is the house 8-beat structure from the `doviloop-video-ad` skill. Every line was checked against `claims/evidence.json`.
+Inputs:
+- `DoviLoop_InboxSolved_v3.mp4` (Da Vinci + Seedance), in `flow-savvy-automations/video/sources/`;
+- Tim Scheuer's LinkedIn post and video `wdZIE2jCPFg`;
+- his kit, `github.com/timscheuerai/launch-video-kit` (MIT). I read its README through a summary and did not clone it.
 
-Tags: **(verified)** checked in a file or a frame today · **(estimate)** my arithmetic · **(unverified)** not checked.
+Every line was checked against `claims/evidence.json`. Tags: **(verified)** checked today · **(estimate)** my arithmetic · **(unverified)** not checked.
 
-## 1. What is wrong with v3 (verified, from its frames)
+## 1. What stays from v3, and what fails
 
-| Problem | Where in v3 | Why it reads generic |
-|---|---|---|
-| **The props change between cuts** | 0–2 s: an open silver laptop at the left, screen facing camera. 15–16 s: a dark MacBook, logo facing camera, in front of Anna. 18–20 s: that MacBook moves to the centre. 9–11 s: Mark points at a third laptop | There are ten regenerated shots of one two-person table, so every difference reads as an error. This is the "computers flip" |
-| **Two AI voices in dialogue** | The whole film | Lip-sync drifts and the scene has to be regenerated for every line. The kit's rule is one narrator for the whole film |
-| **Cheap photoreal stock office** | Every AI shot | Nothing says insurance broker, Denmark or Lithuania. The kit says stylised beats cheap photoreal, and Tim makes his AI footage look deliberate with a vintage grade |
-| **The product is tiny and brief** | Mock cards for 0.5 s, 1.6 s, 2.3 s and 1.2 s | A whole window at thumbnail size says nothing. Push into the one part the voice names |
-| **The dialogue explains instead of showing** | "It's in your inbox and knows our stuff" | Features are talked about. There's no moment and no tension |
-| **The audience is named last** | "Brokers." at 20.7 s | A broker should know the ad is for them in the first second |
-| **It makes claims it can't back** | "Try it free for 14 days", an "Approve ✓" button that doesn't exist, "Quotes 13 / Claims 8" | `free_trial` is UNVERIFIED (`evidence.json:187`) |
+**Stays: the story.** A broker is drowning in the same client questions. Her colleague at the next desk is suspiciously calm. She asks why, he shows her, she pushes back, he answers, she tries it. That is the right story, and it's v3's.
 
-My earlier rebuild (`flow-savvy-automations` `0f4965d`) fixed only the last row. The generic look needs new footage and a new structure.
+**Fails: how it's told** (verified from v3's frames):
 
-## 2. What the two sources say, combined
-
-| Rule | Source |
+| Problem | Where |
 |---|---|
-| Build one body and many hooks. The motion graphics are the slow part, so build them once | Video 00:07:29 · kit's hook-plus-body template |
-| Use one emotional register per hook: pain, nostalgia or humour | Video 00:06:12, 00:06:46, 00:07:15 |
-| Hook, then cut to the brand **on the music drop**, then the body | Kit README (summary) |
-| Body beats: `name` (logo punches in on the drop, tagline writes on), `hero` (full-frame words), `product` (real screen, camera pushes in), `blocks` (features land, then close into one), `switch` (a card that turns), `end` (lockup) | Kit README (summary) |
-| One narrator. A second voice breaks it | Kit README (summary) |
-| Stylised over cheap photoreal. A consistent visual signature | Kit · video 00:06:20, 00:07:07 |
-| Type lands on its word | Kit README (summary) |
-| Make the first version type-only and free. Swap in real voice and footage once the story works | Kit README (summary) |
-| Show frames before a full render | Kit README (summary) |
-| 30–60 s | Kit README (summary) |
+| The props change between cuts: there are ten regenerated shots of one two-person table | Silver laptop on the left at 0–2 s → dark MacBook facing camera at 15–16 s → centred at 18–20 s |
+| It's told, not shown: two people talk at a table, and the pictures barely change | Whole film |
+| The product is tiny and brief, so the climax is missing | Mock cards for 0.5–2.3 s |
+| The hook is a generic office, and brokers are named last | "Brokers." at 20.7 s |
+| Claims it can't make | "Free for 14 days" (`free_trial` UNVERIFIED, `evidence.json:187`), a fake "Approve" button, made-up counts |
 
-## 3. The structure: three hook modules, one fixed body, about 38 s
+## 2. Rules taken from Tim's post, video and kit
 
-The 8 beats from `doviloop-video-ad`, mapped onto the kit's beat types. Beats 1–3 change per hook. Beats 4–8 are built once.
+- **One body, swappable hooks.** Build the expensive part once.
+- **One emotional register.** Here: envy plus humour, the "why are you so calm?" colleague.
+- **Cut to the product on the music drop.**
+- **Push into the one part of the screen the line names.** Never show the whole window small.
+- **A deliberate look over cheap photoreal.**
+- **Type lands on its word.**
+- **Make a free version first, look at frames, then spend.**
 
-| # | Beat (your skill) | Kit beat | s | Narrator line, sized at ~2.5 words/s | On screen | Built with | Claim |
+## 3. The visual idea: a split screen that resolves
+
+Frame 1 is the story with the sound off: **top half Anna, buried; bottom half Mark, coffee, calm.** Same office, same moment.
+
+The ad ends when Anna's half looks like Mark's did: a visual rhyme. Everything between is the product, full frame, on the drop.
+
+## 4. The script: 8 beats, about 31 s
+
+Lines are sized at ~2.5 words/s, with no em dashes and no numbers. "AI" = a single-character shot from one locked still. "Code" = Remotion.
+
+| # | Beat | s | Line | We see | We hear | Built | Claim |
 |---|---|---|---|---|---|---|---|
-| 1 | Hook with pain | hook | 4–5 | per hook module, §4 | stylised AI shot | Seedance / Higgsfield | none |
-| 2 | Connector | hero | 3 | per hook module | full-frame type | code | none |
-| 3 | Beat the substitutes | switch | 4 | per hook module | card: "Paste your policies into a chatbot. Again." | code | none |
-| — | the drop | | | | music drop, cut | | |
-| 4 | Product intro | name | 3 | "Meet DoviLoop. The inbox assistant that knows your business." | logo punches in, tagline writes on | code | `own_knowledge_base` |
-| 5 | Objection: "generic AI" | product | 7 | "A client asks what's covered. The reply is already drafted, in Outlook, from your own policies." | real draft in Outlook. Camera pushes into the grounded sentence and its source | real screen + code camera | `stays_in_outlook`, `own_knowledge_base` |
-| 6 | Proof + transformation | product | 5 | "In your own words. And if it doesn't know, it asks you." | draft → the Needs-you question | real screen + code | `per_person_voice`. **"it asks you": not in evidence.json** ⚠️ |
-| 7 | Colleague + proof | blocks | 4 | "Inside Outlook. On European servers. Grounded in your documents." | four blocks land on their words, then close into one | code | `stays_in_outlook`, `eu_hosted`, `own_knowledge_base` |
-| 7b | (control) | switch | 3 | "Nothing sends until you read it." | card turns: "Nothing sends" → "until you read it" | code | `never_auto_sends` (exact safe phrasing) |
-| 8 | Offer + CTA | end | 4 | "Brokers, see it on your own inbox." | lockup, button, teams.doviloop.dev | code | `offers.demo` |
+| 1 | Hook | 0–2.5 | **Anna:** "Wait. Why is your inbox... done?" | Split. Top: identical client emails slam onto Anna's side ("What does my home insurance cover?"), she's frazzled. Bottom: Mark leans back, coffee. Line burned in big on frame 1 | pings stacking fast on top, quiet below | AI ×2 + code | none |
+| 2 | Connector | 2.5–5 | **Mark:** "I stopped answering the same questions myself." | Mark shrugs, sips. Top half: the same question lands again. Ping | one ping, bed low | AI + code | dramatization, labelled |
+| 3 | Beat the substitutes | 5–8.5 | **Anna:** "ChatGPT? I still paste our policies in every time." | Anna's half takes the frame: a sped-up copy-paste loop (policy, paste, price list, paste) | keyboard clatter, sped up | AI + code | none (her workflow) |
+| 4 | Product intro | 8.5–12.5 | **Mark:** "Try DoviLoop. It's in your inbox and knows our stuff." | Mark spins his laptop toward camera → whip → **full frame, on the drop**: a client email arrives and the reply is already there, "[Draft] · not sent", in Outlook | whoosh, **music drop** | AI + code UI | `stays_in_outlook`, `own_knowledge_base` |
+| 5 | Objection | 12.5–16.5 | **Anna:** "Generic AI replies?" **Mark:** "Our prices. Our policies. Your tone." | Push-in on the draft: the covered items light up with a source chip, "Home Basic policy"; the sign-off is hers | three soft hits, one per word | code UI | `own_knowledge_base`, `per_person_voice` |
+| 6 | Proof + transformation | 16.5–20 | **Anna:** "So I just... check and send?" **Mark:** "Yep." | Her cursor changes one word and presses Send in Outlook. Split returns: **her half is now calm**, the pings stop | silence, then a clean send | code + AI | `never_auto_sends` |
+| 7 | Colleague + proof | 20–24 | **Mark:** "One knowledge base. Everyone's own words." | Three drafts side by side, each signed by a different colleague, all linked to one knowledge-base chip | music lifts | code UI (real recording later) | `own_knowledge_base`, `per_person_voice` |
+| 8 | Offer + CTA | 24–28 | **Anna**, to camera, calm, coffee now: "Brokers. See it on your own inbox." | She steps toward camera; the office behind her is calm | music resolves | AI | `offers.demo` |
+| + | End card | 28–31 | none | Logo · "The inbox assistant that knows your business." · button "See it on your own inbox" · teams.doviloop.dev · small "Nothing sends until you read it." | sting | code | `offers.demo`, `never_auto_sends` |
 
-- **Beat 6, social proof:** there is none, because there are zero customers. The product screen is the proof (skill rule).
-- **Beat 7, "UGC colleague":** shown, not voiced. A second voice breaks the one-narrator rule.
-- **End card:** add "Design-partner terms for the first firms in" if you want urgency (`offers.design_partner`, verified).
+- **Social proof:** there is none, because there are zero customers. The product is the proof (skill rule).
+- **v3's "Works for the whole team":** replaced by beat 7's line, which says the same thing with only verified claims. "Whole team" is not in evidence.json.
 
-## 4. Three hook modules (beats 1–3), one register each
+## 5. Hooks that swap in front of the same body (beat 1 only)
 
-All claim-free: they're story premises, not product claims, and contain no numbers. Number words count too (`attestations` in evidence.json).
-
-**H1 Pain, "Same question"**
-- Shot: a broker's desk at dusk, letters stacking up as a metaphor. No screens.
-- Type overlay: "What does my home insurance actually cover?", repeating.
-- Narrator:
-  - "Brokers. You've answered this one more times than you can count."
-  - "Same question. Same answer. Every day."
-  - "And the chatbot? It doesn't know your policies. So you paste them in. Again."
-
-**H2 Nostalgia, "Back in the day"** (Tim's vintage register)
-- Shot: a 1970s insurance office, a broker pulling a paper file. Grainy, warm.
-- Narrator:
-  - "Remember when a client question meant pulling the paper file?"
-  - "It still does. The file just moved into your inbox."
-  - "And no chatbot has read it."
-
-**H3 Humour, "On holiday"**
-- Shot: an empty chair, a "Back Monday" note on the screen bezel (the screen is off), a cold coffee.
-- Narrator:
-  - "Every brokerage has that colleague who knows every policy by heart."
-  - "This week, she's on holiday."
-  - "So everyone else is guessing. Or pasting policies into a chatbot."
-
-Testing: run one variable per test (`CLAUDE.md`, "one variable per test"). The three hooks are the variable; the body stays identical.
-
-## 5. Shooting rules that stop the "flip"
-
-1. Two AI shots per hook module at most, and none in the body. v3 had ten of the same setup.
-2. **No screens in AI frames** (skill rule). If a laptop must appear, it's closed, the same model, named in every prompt, and comes from the same start still.
-3. Image-to-video from **one start still per setup**. Every cut of that setup starts from it.
-4. Apply one look to every shot, e.g. "16 mm film, warm grade, soft grain". This makes AI footage look deliberate and hides small artifacts.
-5. No lip-sync. The narrator sits on top, so nobody on screen has to talk.
-6. Text, captions and UI are always code, never generated.
-
-## 6. Order of work, costed in your time
-
-| Step | What | Cost |
+| Hook | Register | Line |
 |---|---|---|
-| 1 | Type-only body plus hook H1 as type, scratch narrator (edge-tts, as reel-engine uses) and a scratch bed, in Remotion (`flow-savvy-automations/video`, already set up). Stills first, then render | $0, about half a day (estimate) |
-| 2 | Watch it. Fix the story. Only then spend credits | — |
-| 3 | AI shots for the hooks: up to 2 per module, 6 in total | Your skill's figure: ~100–130 Da Vinci credits per Seedance Fast clip, so about 600–800 for 6 (estimate). Higgsfield is on the free plan with 16.25 credits, which isn't enough |
-| 4 | One real narrator, music with a drop at the hook → body cut, mix | — |
-| 5 | Export 9:16, plus 4:5 or 1:1 | minutes |
+| H1 | envy, curiosity | "Wait. Why is your inbox... done?" (above) |
+| H2 | pain, humour, to camera | **Anna:** "If another client asks what's covered, I'm moving to Spain." |
+| H3 | direct callout | **Mark**, to camera: "Brokers. Your clients keep asking the same things. Watch." |
 
-The product beats need a **broker** sample tenant recorded on screen. The final demo is a SaaS sample ("€49/month") and would read as DoviLoop's price. Until there's a broker recording, the coded broker screens in `flow-savvy-automations/video/src/compositions/ads/parts.tsx` stand in.
+Run them as one test: the hook is the only variable.
 
-Tim's kit could do steps 1 and 4: brand from URL, word-aligned type, free audio path. It would also be a third renderer next to reel-engine and Remotion. My call: borrow its beat types and rules, and build in Remotion.
+## 6. How it gets shot without the "flip"
+
+1. **Singles, not two-shots.** One front-facing still each for Anna and Mark (v3's faces as reference). Every line is image-to-video from that still, start frame only, with native voice. Same still, same props, natural jump cuts.
+2. **No screens in AI frames.** Every screen, caption, split and the end card are code.
+3. **One look across both**: warm, filmic grade, shallow depth of field. Specific props: policy binders, not a stock glass office.
+4. **Clips, merged per skill rule:**
+   - Anna: (1) hook, (2) ChatGPT line, (3) "Generic AI replies?" + "check and send?" in one clip, cut in the edit, (4) CTA.
+   - Mark: (1) tease + intro, (2) "Our prices…" + "Yep.", (3) knowledge-base line.
+   - That's **7 clips**, about 700–900 Da Vinci credits at the skill's ~100–130 per Seedance Fast clip (estimate).
+   - Higgsfield has 16.25 credits on the free plan, which isn't enough.
+5. **Coded parts already exist**: the draft card, paste loop, send and end card in `flow-savvy-automations/video/src/compositions/ads/parts.tsx`. They need the split screen, kinetic captions and push-ins added.
+
+**Free test first (Tim's kit rule):** an animatic of this exact structure, cut from v3's own clips cropped to faces in the split, plus the coded screens. That's $0 and about 1–2 h (estimate), and lets you judge pace and story before any credits.
 
 ## 7. Open decisions (yours)
 
-1. Which hook to build first: H1, H2 or H3.
-2. "And if it doesn't know, it asks you." The Needs-you loop exists in the product and is shown in your own demo, but it isn't in `evidence.json`. Add an entry, or cut the line.
-3. "Chatbot" or "ChatGPT". Your skill's default names ChatGPT; this plan uses the generic word.
-4. EN first. DA/LT need a native proofread (`CLAUDE.md`).
+1. Approve or edit the lines in §4. Next is skill step 3: the stills, then the Seedance prompts and upload map.
+2. Which hook leads: H1, H2 or H3.
+3. "ChatGPT" named, or "a chatbot".
+4. Free animatic first, or straight to stills.
+
+EN first. DA/LT need a native proofread (`CLAUDE.md`).
